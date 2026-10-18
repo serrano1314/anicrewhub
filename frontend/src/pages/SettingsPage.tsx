@@ -65,10 +65,10 @@ function SettingsSection({
   const contentId = useId()
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-4 rounded-2xl px-5 py-4 text-left outline-none transition-colors hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/60"
+        className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left outline-none transition-colors hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/60 ${isOpen ? 'rounded-t-2xl' : 'rounded-2xl'}`}
         aria-expanded={isOpen}
         aria-controls={contentId}
         onClick={() => setIsOpen((open) => !open)}
