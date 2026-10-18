@@ -49,15 +49,10 @@ Import the same GitHub repo.
 | Output directory | `dist` |
 | Node.js | 20 |
 
-Environment variable:
-
-| Name | Value |
-|---|---|
-| `VITE_API_BASE` | Render origin, no trailing slash, for example `https://your-api.onrender.com` |
-
-Leave `VITE_API_BASE` empty for local `npm run dev`. The Vite dev server still proxies `/api` to `http://127.0.0.1:8000`.
-
-Vite bakes `VITE_API_BASE` in at build time. Change it in Vercel, then redeploy, if the API URL changes.
+No Vercel environment variable is needed for the API. `vercel.json` proxies `/api/*`
+to the Render service while keeping the browser URL on the Vercel origin. This makes
+the refresh cookie first-party. For local development, Vite proxies `/api` to
+`http://127.0.0.1:8000`.
 
 ## Wire the two origins
 

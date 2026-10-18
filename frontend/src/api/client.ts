@@ -53,18 +53,10 @@ export async function readApiError(response: Response): Promise<ApiError> {
   return new ApiError(message, response.status)
 }
 
-function apiOrigin(): string {
-  const configured = import.meta.env.VITE_API_BASE
-  if (typeof configured !== 'string') {
-    return ''
-  }
-  return configured.trim().replace(/\/+$/, '')
-}
-
 export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
   const headers = buildAuthHeaders(accessToken, options.headers)
-  return fetch(`${apiOrigin()}${path}`, { ...options, headers, credentials: 'include' })
+  return fetch(path, { ...options, headers, credentials: 'include' })
 }

@@ -83,7 +83,7 @@ cd frontend
 npm install
 ```
 
-Local dev does not need an API URL. Copy the example and leave `VITE_API_BASE` empty so Vite proxies `/api` to `http://127.0.0.1:8000`.
+API requests always use `/api`; Vite proxies that path to `http://127.0.0.1:8000` during local development.
 
 ```bash
 # Windows
@@ -130,7 +130,7 @@ Backend values live in `backend/.env`. Names match `backend/.env.example`.
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh cookie lifetime. Default `7` |
 | `RATE_LIMIT_*` | Optional per-IP limits on auth and extension routes |
 
-Frontend: `VITE_API_BASE` in `frontend/.env`. Leave it empty for `npm run dev`.
+The frontend needs no API environment variable: Vite handles `/api` locally and Vercel proxies it in production.
 
 Never commit `.env` or real connection strings.
 
@@ -158,7 +158,7 @@ Full dashboard steps and variable lists are in [docs/DEPLOY.md](docs/DEPLOY.md).
 |---|---|---|
 | Database | Neon | Same `DATABASE_URL` / `DIRECT_URL` pattern as local |
 | API | Render | Root `backend`, start command runs `alembic upgrade head` then `uvicorn` |
-| Web app | Vercel | Root `frontend`, set `VITE_API_BASE` to the Render URL (no trailing slash) |
+| Web app | Vercel | Root `frontend`; `/api` is proxied to Render by `vercel.json` |
 | Extension | Your machine | Load unpacked `extension/dist`, API = Render URL, token from live Settings |
 
 Set Render `CORS_ORIGINS` to your exact Vercel origin and `COOKIE_SECURE=true`. Redeploy both sides after changing origins or API URL.
