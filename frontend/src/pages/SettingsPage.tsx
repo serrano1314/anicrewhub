@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 import { INPUT_PLACEHOLDERS } from '../lib/placeholders'
 import { createSite, deleteSite, fetchSites, updateSite } from '../api/sites'
@@ -58,12 +58,21 @@ function SettingsSection({
 }: {
   title: string
   description: string
-  children: React.ReactNode
+  children: ReactNode
   defaultOpen?: boolean
 }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const contentId = useId()
+
   return (
-    <details open={defaultOpen} className="group rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+    <section className="rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-4 rounded-2xl px-5 py-4 text-left outline-none transition-colors hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/60"
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+        onClick={() => setIsOpen((open) => !open)}
+      >
         <span>
           <span className="block text-lg font-medium tracking-tight text-zinc-50">{title}</span>
           <span className="mt-1 block text-sm text-zinc-400">{description}</span>
@@ -73,14 +82,23 @@ function SettingsSection({
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="size-5 shrink-0 text-zinc-400 transition-transform duration-200 group-open:rotate-180"
+          className={`size-5 shrink-0 text-zinc-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
           aria-hidden="true"
         >
           <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </summary>
-      <div className="border-t border-white/10 px-5 py-5">{children}</div>
-    </details>
+      </button>
+      <div
+        id={contentId}
+        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+      >
+        <div className="overflow-hidden">
+          <div className={`border-t border-white/10 px-5 py-5 transition-all duration-300 ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'}`}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
