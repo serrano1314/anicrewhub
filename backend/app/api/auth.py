@@ -1,4 +1,8 @@
+import logging
+
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -30,7 +34,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _issue_tokens(response: Response, user: User) -> TokenResponse:
     set_refresh_cookie(response, create_refresh_token(user.id))
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, username=user.username))
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -54,6 +58,7 @@ def login(
 ) -> TokenResponse:
     enforce_rate_limit(request, "auth")
     user = authenticate_user(db, body.email, body.password)
+    logger.info(f"login - username: {user.username}, user_id: {user.id}")
     return _issue_tokens(response, user)
 
 
@@ -78,6 +83,9 @@ def logout(
     _current_user: User = Depends(get_current_user),
 ) -> None:
     clear_refresh_cookie(response)
+    user_id = _current_user.id if _current_user else None
+    username = _current_user.username if _current_user else None
+    logger.info(f"logout - username: {username}, user_id: {user_id}")
 
 
 @router.get("/me", response_model=UserResponse)

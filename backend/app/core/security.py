@@ -25,7 +25,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_token(user_id: UUID, token_type: TokenType, expires_delta: timedelta) -> str:
+def create_token(user_id: UUID, token_type: TokenType, expires_delta: timedelta, username: str | None = None) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
     payload = {
@@ -34,15 +34,18 @@ def create_token(user_id: UUID, token_type: TokenType, expires_delta: timedelta)
         "iat": now,
         "exp": now + expires_delta,
     }
+    if username is not None:
+        payload["username"] = username
     return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
 
 
-def create_access_token(user_id: UUID) -> str:
+def create_access_token(user_id: UUID, username: str | None = None) -> str:
     settings = get_settings()
     return create_token(
         user_id,
         "access",
         timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        username=username,
     )
 
 
