@@ -90,7 +90,7 @@ export function AnimeDetailPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (body: { status?: LibraryStatus; score?: number | null }) =>
+    mutationFn: (body: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean }) =>
       updateLibrary(anilistId as number, body),
     onSuccess: refreshProgress,
   })
@@ -307,6 +307,30 @@ export function AnimeDetailPage() {
               />
             </label>
           </div>
+          <button
+            type="button"
+            disabled={entryQuery.isPending || updateMutation.isPending}
+            aria-pressed={entryQuery.data?.is_favorite ?? false}
+            onClick={() =>
+              updateMutation.mutate({ is_favorite: !(entryQuery.data?.is_favorite ?? false) })
+            }
+            className={cn(
+              UI.btn,
+              entryQuery.data?.is_favorite ? 'border border-rose-400/30 bg-rose-500/15 text-rose-100' : UI.btnSecondary,
+            )}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="mr-2 h-4 w-4">
+              <path
+                d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"
+                fill={entryQuery.data?.is_favorite ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {entryQuery.data?.is_favorite ? 'Favorite' : 'Add to favorites'}
+          </button>
           <form onSubmit={onMarkUpTo} className="flex flex-col gap-2 sm:flex-row">
             <label className="block flex-1 space-y-1.5">
               <span className={UI.fieldLabel}>I watched up to episode</span>

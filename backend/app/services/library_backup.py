@@ -51,6 +51,7 @@ def export_user_library(db: Session, user: User) -> LibraryExportDocument:
             ExportLibraryItem(
                 anilist_id=anime.anilist_id,
                 status=LibraryStatus(entry.status),
+                is_favorite=entry.is_favorite,
                 score=entry.score,
                 episodes=[
                     ExportEpisode(
@@ -189,12 +190,14 @@ def _merge_library_entry(
             user_id=user_id,
             anime_id=anime_id,
             status=item.status.value,
+            is_favorite=item.is_favorite,
             score=item.score,
             last_episode_watched=0,
         )
         db.add(entry)
     else:
         entry.status = item.status.value
+        entry.is_favorite = item.is_favorite
         entry.score = item.score
     db.flush()
     return entry

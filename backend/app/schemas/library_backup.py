@@ -11,7 +11,7 @@ LIBRARY_EXPORT_VERSION = 1
 """
 Import merge rules (v1):
 - Anime cache: upsert each embedded anime snapshot from the file.
-- Library: create missing entries; existing entries get status/score from the file.
+- Library: create missing entries; existing entries get status/score/favorite from the file.
 - Episodes: union by episode number; if both sides have the same episode, keep the later watched_at.
 - Sites: match by site_key (name + base_url); create or update templates from the file.
 - Per-anime site links: upsert by (anilist_id, site_key); anime_url from the file wins.
@@ -28,6 +28,7 @@ class ExportEpisode(BaseModel):
 class ExportLibraryItem(BaseModel):
     anilist_id: int = Field(ge=1)
     status: LibraryStatus
+    is_favorite: bool = False
     score: int | None = Field(default=None, ge=1, le=10)
     episodes: list[ExportEpisode] = Field(default_factory=list)
     anime: AnimeData

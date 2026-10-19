@@ -11,6 +11,13 @@ class LibraryStatus(StrEnum):
     dropped = "dropped"
 
 
+class LibrarySort(StrEnum):
+    updated = "updated"
+    title = "title"
+    rating = "rating"
+    progress = "progress"
+
+
 class LibraryCreateRequest(BaseModel):
     anilist_id: int = Field(ge=1)
     status: LibraryStatus
@@ -19,11 +26,13 @@ class LibraryCreateRequest(BaseModel):
 class LibraryUpdateRequest(BaseModel):
     status: LibraryStatus | None = None
     score: int | None = Field(default=None, ge=1, le=10)
+    is_favorite: bool | None = None
 
 
 class LibraryEntryResponse(BaseModel):
     anilist_id: int
     status: LibraryStatus
+    is_favorite: bool
     score: int | None
     last_episode_watched: int
     watched_count: int
@@ -34,9 +43,22 @@ class LibraryEntryResponse(BaseModel):
     format: str | None
 
 
+class LibrarySummaryResponse(BaseModel):
+    total: int
+    favorites: int
+    watching: int
+    completed: int
+    plan_to_watch: int
+    on_hold: int
+    dropped: int
+
+
 class LibraryListResponse(BaseModel):
     page: int
     has_next_page: bool
+    total_count: int
+    total_pages: int
+    summary: LibrarySummaryResponse
     results: list[LibraryEntryResponse]
 
 

@@ -10,6 +10,7 @@ export type ExportEpisode = {
 export type ExportLibraryItem = {
   anilist_id: number
   status: LibraryStatus
+  is_favorite: boolean
   score: number | null
   episodes: ExportEpisode[]
   anime: Anime

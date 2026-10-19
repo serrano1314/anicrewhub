@@ -18,9 +18,9 @@ export function ProgressMeter({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
-        <span className="text-zinc-400">Progress</span>
-        <span className="font-medium tabular-nums">{label}</span>
+      <div className="flex items-baseline justify-between gap-1.5 text-xs">
+        <span className="whitespace-nowrap text-zinc-400">Progress</span>
+        <span className="shrink-0 whitespace-nowrap font-medium tabular-nums">{label}</span>
       </div>
       <div
         className="h-2 overflow-hidden rounded-full bg-zinc-800/90 ring-1 ring-white/5"
