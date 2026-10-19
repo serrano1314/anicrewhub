@@ -5,6 +5,7 @@ import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileModal } from './ProfileModal'
 import { useAuth } from '../auth/AuthProvider'
 import { useDialog } from './dialogContext'
+import { APP_VERSION } from '../lib/config'
 
 type NavItem = {
   to: string
@@ -175,6 +176,22 @@ export function AppShell() {
       <main className="relative mx-auto w-full max-w-5xl px-4 py-8 pb-32 md:pb-10">
         <PageTransition />
       </main>
+
+      <footer className="relative mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 pb-28 text-center text-xs text-zinc-500 md:pb-6">
+        <span>
+          Anime metadata by{' '}
+          <a
+            href="https://anilist.co"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-400 underline decoration-white/20 underline-offset-2 transition-colors hover:text-indigo-200"
+          >
+            AniList
+          </a>
+        </span>
+        <span aria-hidden="true" className="text-zinc-700">·</span>
+        <span>Anime Tracker v{APP_VERSION}</span>
+      </footer>
 
       <nav
         className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] md:hidden"

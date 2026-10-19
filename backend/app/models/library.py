@@ -37,6 +37,11 @@ class UserAnime(Base):
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     anime_id: Mapped[UUID] = mapped_column(ForeignKey("anime.id", ondelete="CASCADE"), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_favorite: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_episode_watched: Mapped[int] = mapped_column(
         Integer,

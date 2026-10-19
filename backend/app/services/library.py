@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,8 @@ from app.models.user import User
 from app.schemas.library import (
     LibraryEntryResponse,
     LibraryListResponse,
+    LibrarySort,
+    LibrarySummaryResponse,
     LibraryStatus,
 )
 from app.services.anilist import AniListError
@@ -26,6 +28,8 @@ def list_library(
     status_filter: LibraryStatus | None,
     page: int,
     query: str | None = None,
+    favorite_only: bool = False,
+    sort_by: LibrarySort = LibrarySort.updated,
     client: AnimeSource | None = None,
 ) -> LibraryListResponse:
     watched_counts = (
@@ -38,6 +42,8 @@ def list_library(
         .subquery()
     )
     filters = [UserAnime.user_id == user.id]
+    if favorite_only:
+        filters.append(UserAnime.is_favorite.is_(True))
     if status_filter is not None:
         filters.append(UserAnime.status == status_filter.value)
     if query:
@@ -53,7 +59,7 @@ def list_library(
                 combined = combined & f
             filters.append(combined)
 
-    rows = db.execute(
+    statement = (
         select(
             UserAnime,
             Anime,
@@ -62,15 +68,65 @@ def list_library(
         .join(Anime, Anime.id == UserAnime.anime_id)
         .outerjoin(watched_counts, watched_counts.c.anime_id == UserAnime.anime_id)
         .where(*filters)
-        .order_by(UserAnime.updated_at.desc(), Anime.anilist_id.asc())
+    )
+    if sort_by == LibrarySort.title:
+        sort_order = (
+            func.lower(func.coalesce(func.nullif(Anime.title_english, ""), Anime.title_romaji)).asc(),
+            Anime.anilist_id.asc(),
+        )
+    elif sort_by == LibrarySort.rating:
+        sort_order = (UserAnime.score.desc().nulls_last(), UserAnime.updated_at.desc(), Anime.anilist_id.asc())
+    elif sort_by == LibrarySort.progress:
+        sort_order = (
+            UserAnime.last_episode_watched.desc(),
+            UserAnime.updated_at.desc(),
+            Anime.anilist_id.asc(),
+        )
+    else:
+        sort_order = (UserAnime.updated_at.desc(), Anime.anilist_id.asc())
+    rows = db.execute(
+        statement.order_by(UserAnime.is_favorite.desc(), *sort_order)
         .offset((page - 1) * LIBRARY_PAGE_SIZE)
         .limit(LIBRARY_PAGE_SIZE + 1)
     ).all()
+    total_count = db.scalar(
+        select(func.count()).select_from(UserAnime).where(UserAnime.user_id == user.id)
+    ) or 0
+    summary_values = db.execute(
+        select(
+            func.count(UserAnime.id),
+            func.coalesce(func.sum(case((UserAnime.is_favorite.is_(True), 1), else_=0)), 0),
+            *[
+                func.coalesce(
+                    func.sum(case((UserAnime.status == library_status.value, 1), else_=0)),
+                    0,
+                )
+                for library_status in LibraryStatus
+            ],
+        ).where(UserAnime.user_id == user.id)
+    ).one()
+    filtered_count = db.scalar(
+        select(func.count())
+        .select_from(UserAnime)
+        .join(Anime, Anime.id == UserAnime.anime_id)
+        .where(*filters)
+    ) or 0
     has_next_page = len(rows) > LIBRARY_PAGE_SIZE
     visible = rows[:LIBRARY_PAGE_SIZE]
     return LibraryListResponse(
         page=page,
         has_next_page=has_next_page,
+        total_count=total_count,
+        total_pages=max(1, (filtered_count + LIBRARY_PAGE_SIZE - 1) // LIBRARY_PAGE_SIZE),
+        summary=LibrarySummaryResponse(
+            total=int(summary_values[0]),
+            favorites=int(summary_values[1]),
+            watching=int(summary_values[2]),
+            completed=int(summary_values[3]),
+            plan_to_watch=int(summary_values[4]),
+            on_hold=int(summary_values[5]),
+            dropped=int(summary_values[6]),
+        ),
         results=[
             entry_response(entry, _refresh_if_airing(db, anime, client), int(watched_count))
             for entry, anime, watched_count in visible
@@ -124,19 +180,28 @@ def update_library(
     *,
     list_status: LibraryStatus | None,
     score: int | None,
+    is_favorite: bool | None,
     update_status: bool,
     update_score: bool,
+    update_favorite: bool,
 ) -> LibraryEntryResponse:
     if update_status and list_status is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="status cannot be null",
         )
+    if update_favorite and is_favorite is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="is_favorite cannot be null",
+        )
     entry, anime = get_library_entry(db, user.id, anilist_id)
     if update_status and list_status is not None:
         entry.status = list_status.value
     if update_score:
         entry.score = score
+    if update_favorite and is_favorite is not None:
+        entry.is_favorite = is_favorite
     db.commit()
     db.refresh(entry)
     return entry_response(entry, anime, count_watched(db, user.id, anime.id))
@@ -185,6 +250,7 @@ def entry_response(entry: UserAnime, anime: Anime, watched_count: int) -> Librar
     return LibraryEntryResponse(
         anilist_id=anime.anilist_id,
         status=LibraryStatus(entry.status),
+        is_favorite=entry.is_favorite,
         score=entry.score,
         last_episode_watched=entry.last_episode_watched,
         watched_count=watched_count,

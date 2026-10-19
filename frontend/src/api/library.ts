@@ -1,6 +1,7 @@
 import type {
   LibraryEntry,
   LibraryListResponse,
+  LibrarySort,
   LibraryStatus,
   ProgressState,
   WatchedEpisodes,
@@ -12,13 +13,18 @@ export function fetchLibrary(
   status: LibraryStatus | undefined,
   page: number,
   query: string = '',
+  favorites: boolean = false,
+  sort: LibrarySort = 'updated',
 ): Promise<LibraryListResponse> {
-  const params = new URLSearchParams({ page: String(page) })
+  const params = new URLSearchParams({ page: String(page), sort })
   if (status) {
     params.set('status', status)
   }
   if (query) {
     params.set('q', query)
+  }
+  if (favorites) {
+    params.set('favorites', 'true')
   }
   return apiFetch(`/api/v1/library?${params.toString()}`).then((response) =>
     readJson<LibraryListResponse>(response),
@@ -34,7 +40,7 @@ export function addToLibrary(anilistId: number, status: LibraryStatus): Promise<
 
 export function updateLibrary(
   anilistId: number,
-  body: { status?: LibraryStatus; score?: number | null },
+  body: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean },
 ): Promise<LibraryEntry> {
   return apiFetch(`/api/v1/library/${anilistId}`, {
     method: 'PATCH',

@@ -23,6 +23,7 @@ export function isLibraryStatus(value: string): value is LibraryStatus {
 export type LibraryEntry = {
   anilist_id: number
   status: LibraryStatus
+  is_favorite: boolean
   score: number | null
   last_episode_watched: number
   watched_count: number
@@ -33,9 +34,24 @@ export type LibraryEntry = {
   format: string | null
 }
 
+export type LibrarySort = 'updated' | 'title' | 'rating' | 'progress'
+
+export type LibrarySummary = {
+  total: number
+  favorites: number
+  watching: number
+  completed: number
+  plan_to_watch: number
+  on_hold: number
+  dropped: number
+}
+
 export type LibraryListResponse = {
   page: number
   has_next_page: boolean
+  total_count: number
+  total_pages: number
+  summary: LibrarySummary
   results: LibraryEntry[]
 }
 

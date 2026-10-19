@@ -42,6 +42,7 @@ def _seed_library(client: TestClient, db: Session) -> dict[str, str]:
         client.post("/api/v1/library", json={"anilist_id": 21, "status": "watching"}, headers=headers).status_code
         == 201
     )
+    assert client.patch("/api/v1/library/21", json={"is_favorite": True}, headers=headers).status_code == 200
     assert client.put("/api/v1/library/21/episodes/5", json={"watched": True}, headers=headers).status_code == 200
     site = client.post(
         "/api/v1/sites",
@@ -72,6 +73,7 @@ def test_export_import_round_trip(client: TestClient, db: Session) -> None:
     assert payload["version"] == 1
     assert len(payload["library"]) == 1
     assert payload["library"][0]["anilist_id"] == 21
+    assert payload["library"][0]["is_favorite"] is True
     assert len(payload["sites"]) == 1
     assert len(payload["anime_sites"]) == 1
 
@@ -85,6 +87,7 @@ def test_export_import_round_trip(client: TestClient, db: Session) -> None:
     list_after = client.get("/api/v1/library", headers=headers)
     assert list_after.status_code == 200
     assert len(list_after.json()["results"]) == 1
+    assert list_after.json()["results"][0]["is_favorite"] is True
     episodes = client.get("/api/v1/library/21/episodes", headers=headers)
     assert 5 in episodes.json()["episodes"]
 

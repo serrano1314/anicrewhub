@@ -12,6 +12,7 @@ from app.schemas.library import (
     LibraryCreateRequest,
     LibraryEntryResponse,
     LibraryListResponse,
+    LibrarySort,
     LibraryStatus,
     LibraryUpdateRequest,
     ProgressStateResponse,
@@ -58,10 +59,20 @@ def read_library(
     status_filter: LibraryStatus | None = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
     q: str | None = Query(default=None, alias="q"),
+    favorite_only: bool = Query(default=False, alias="favorites"),
+    sort_by: LibrarySort = Query(default=LibrarySort.updated, alias="sort"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> LibraryListResponse:
-    return list_library(db, current_user, status_filter=status_filter, page=page, query=q)
+    return list_library(
+        db,
+        current_user,
+        status_filter=status_filter,
+        page=page,
+        query=q,
+        favorite_only=favorite_only,
+        sort_by=sort_by,
+    )
 
 
 @router.post("", response_model=LibraryEntryResponse, status_code=status.HTTP_201_CREATED)
@@ -143,8 +154,10 @@ def patch_library_entry(
         anilist_id,
         list_status=body.status,
         score=body.score,
+        is_favorite=body.is_favorite,
         update_status="status" in body.model_fields_set,
         update_score="score" in body.model_fields_set,
+        update_favorite="is_favorite" in body.model_fields_set,
     )
 
 

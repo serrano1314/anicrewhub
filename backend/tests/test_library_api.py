@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.anime import Anime
-from app.models.library import EpisodeProgress
+from app.models.library import EpisodeProgress, UserAnime
 
 REGISTER_BODY = {
     "email": "steven@example.com",
@@ -56,6 +56,7 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     body = created.json()
     assert body["anilist_id"] == 21
     assert body["status"] == "watching"
+    assert body["is_favorite"] is False
     assert body["watched_count"] == 0
     assert body["last_episode_watched"] == 0
     assert body["total_episodes"] == 24
@@ -77,6 +78,12 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     assert patched.status_code == 200
     assert patched.json()["score"] == 8
     assert patched.json()["status"] == "on_hold"
+
+    favorited = client.patch("/api/v1/library/21", json={"is_favorite": True}, headers=headers)
+    assert favorited.status_code == 200
+    assert favorited.json()["is_favorite"] is True
+    invalid_favorite = client.patch("/api/v1/library/21", json={"is_favorite": None}, headers=headers)
+    assert invalid_favorite.status_code == 422
 
     cleared = client.patch("/api/v1/library/21", json={"score": None}, headers=headers)
     assert cleared.status_code == 200
@@ -105,6 +112,15 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     listed = client.get("/api/v1/library", params={"status": "on_hold"}, headers=headers)
     assert listed.status_code == 200
     assert listed.json()["results"][0]["watched_count"] == 11
+    assert listed.json()["summary"] == {
+        "total": 1,
+        "favorites": 1,
+        "watching": 0,
+        "completed": 0,
+        "plan_to_watch": 0,
+        "on_hold": 1,
+        "dropped": 0,
+    }
     empty = client.get("/api/v1/library", params={"status": "dropped"}, headers=headers)
     assert empty.json()["results"] == []
 
@@ -145,7 +161,74 @@ def test_library_page_reports_next_page(client: TestClient, db: Session, monkeyp
     first = client.get("/api/v1/library", params={"page": 1}, headers=headers)
     assert first.status_code == 200
     assert first.json()["has_next_page"] is True
+    assert first.json()["total_count"] == 2
+    assert first.json()["total_pages"] == 2
     assert len(first.json()["results"]) == 1
     second = client.get("/api/v1/library", params={"page": 2}, headers=headers)
     assert second.json()["has_next_page"] is False
+    assert second.json()["total_count"] == 2
+    assert second.json()["total_pages"] == 2
     assert len(second.json()["results"]) == 1
+
+
+def test_favorites_are_filtered_and_sorted_before_other_entries(
+    client: TestClient,
+    db: Session,
+) -> None:
+    headers = _auth(client)
+    for anilist_id in (1, 2, 3):
+        _cache(db, anilist_id=anilist_id, total=12)
+    client.post("/api/v1/library", json={"anilist_id": 1, "status": "watching"}, headers=headers)
+    client.post("/api/v1/library", json={"anilist_id": 2, "status": "completed"}, headers=headers)
+    client.post("/api/v1/library", json={"anilist_id": 3, "status": "plan_to_watch"}, headers=headers)
+
+    assert client.patch("/api/v1/library/1", json={"is_favorite": True}, headers=headers).status_code == 200
+    assert client.patch("/api/v1/library/2", json={"is_favorite": True}, headers=headers).status_code == 200
+
+    entries = db.scalars(select(UserAnime)).all()
+    entries_by_id = {db.get(Anime, entry.anime_id).anilist_id: entry for entry in entries}
+    entries_by_id[1].updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    entries_by_id[2].updated_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    entries_by_id[3].updated_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    db.commit()
+
+    all_entries = client.get("/api/v1/library", headers=headers).json()["results"]
+    assert [entry["anilist_id"] for entry in all_entries] == [2, 1, 3]
+    favorites = client.get(
+        "/api/v1/library",
+        params={"favorites": "true"},
+        headers=headers,
+    ).json()["results"]
+    assert [entry["anilist_id"] for entry in favorites] == [2, 1]
+
+
+def test_library_supports_title_and_rating_sort(client: TestClient, db: Session) -> None:
+    headers = _auth(client)
+    zeta = _cache(db, anilist_id=1)
+    zeta.title_english = "Zeta"
+    zeta.title_romaji = "Zeta"
+    alpha = _cache(db, anilist_id=2)
+    alpha.title_english = "Alpha"
+    alpha.title_romaji = "Alpha"
+    db.commit()
+    for anilist_id in (1, 2):
+        client.post(
+            "/api/v1/library",
+            json={"anilist_id": anilist_id, "status": "watching"},
+            headers=headers,
+        )
+    client.patch("/api/v1/library/1", json={"score": 8}, headers=headers)
+    client.patch("/api/v1/library/2", json={"score": 9}, headers=headers)
+
+    title_order = client.get(
+        "/api/v1/library",
+        params={"sort": "title"},
+        headers=headers,
+    ).json()["results"]
+    assert [entry["anilist_id"] for entry in title_order] == [2, 1]
+    rating_order = client.get(
+        "/api/v1/library",
+        params={"sort": "rating"},
+        headers=headers,
+    ).json()["results"]
+    assert [entry["anilist_id"] for entry in rating_order] == [2, 1]
