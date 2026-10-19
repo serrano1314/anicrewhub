@@ -30,7 +30,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _issue_tokens(response: Response, user: User) -> TokenResponse:
     set_refresh_cookie(response, create_refresh_token(user.id))
-    return TokenResponse(access_token=create_access_token(user.id))
+    return TokenResponse(access_token=create_access_token(user.id, username=user.username))
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)

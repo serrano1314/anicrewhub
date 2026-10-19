@@ -25,7 +25,12 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_token(user_id: UUID, token_type: TokenType, expires_delta: timedelta) -> str:
+def create_token(
+    user_id: UUID,
+    token_type: TokenType,
+    expires_delta: timedelta,
+    username: str | None = None,
+) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
     payload = {
@@ -34,15 +39,18 @@ def create_token(user_id: UUID, token_type: TokenType, expires_delta: timedelta)
         "iat": now,
         "exp": now + expires_delta,
     }
+    if username is not None:
+        payload["username"] = username
     return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
 
 
-def create_access_token(user_id: UUID) -> str:
+def create_access_token(user_id: UUID, username: str | None = None) -> str:
     settings = get_settings()
     return create_token(
         user_id,
         "access",
         timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        username,
     )
 
 
@@ -64,6 +72,19 @@ def decode_token(token: str, expected_type: TokenType) -> UUID:
     if not subject or not isinstance(subject, str):
         raise jwt.InvalidTokenError("Missing subject")
     return UUID(subject)
+
+
+def decode_access_token_identity(token: str) -> tuple[UUID, str | None]:
+    """Return the authenticated user ID and optional display name for logging."""
+    settings = get_settings()
+    payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+    if payload.get("type") != "access":
+        raise jwt.InvalidTokenError("Wrong token type")
+    subject = payload.get("sub")
+    if not subject or not isinstance(subject, str):
+        raise jwt.InvalidTokenError("Missing subject")
+    username = payload.get("username")
+    return UUID(subject), username if isinstance(username, str) else None
 
 
 def set_refresh_cookie(response: Response, refresh_token: str) -> None:

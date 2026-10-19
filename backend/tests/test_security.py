@@ -6,7 +6,9 @@ import pytest
 
 from app.core.config import get_settings
 from app.core.security import (
+    create_access_token,
     create_token,
+    decode_access_token_identity,
     decode_token,
     hash_password,
     verify_password,
@@ -24,6 +26,12 @@ def test_access_token_roundtrip() -> None:
     user_id = uuid4()
     token = create_token(user_id, "access", timedelta(minutes=15))
     assert decode_token(token, "access") == user_id
+
+
+def test_access_token_identity_includes_username() -> None:
+    user_id = uuid4()
+    token = create_access_token(user_id, username="steven")
+    assert decode_access_token_identity(token) == (user_id, "steven")
 
 
 def test_refresh_token_rejected_as_access() -> None:
