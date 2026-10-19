@@ -21,8 +21,6 @@ _ = engine
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-# Temporary development aid. Set this to False to remove the background heartbeat.
-KEEP_ALIVE_ENABLED = True
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -32,7 +30,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Delegate implementation cleanly to your original parameterized context manager
-    async with keep_alive_lifespan(enabled=KEEP_ALIVE_ENABLED):
+    async with keep_alive_lifespan(enabled=settings.KEEP_ALIVE_ENABLED):
         yield
 
 
