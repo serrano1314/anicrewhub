@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173"
     FRONTEND_URL: str = "http://localhost:5173"
     PASSWORD_RESET_EXPIRE_MINUTES: int = 60
+    KEEP_ALIVE_ENABLED: bool = False
 
     CONTACT_INBOX_EMAIL: str = ""
     SMTP_HOST: str = ""

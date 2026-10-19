@@ -32,10 +32,26 @@ Environment variable **names** (values stay in the dashboard):
 | `ANILIST_TIMEOUT_SECONDS` | `10` (optional) |
 | `ANILIST_SEARCH_CACHE_TTL_SECONDS` | `300` (optional) |
 | `ANIME_SYNC_TTL_HOURS` | `24` (optional) |
+| `KEEP_ALIVE_ENABLED` | `false` by default; set to `true` to enable the keep-alive job |
 
 After the first successful deploy, open `GET /health` on the service URL. It should return `{"status":"ok"}`.
 
 `COOKIE_SECURE=true` sets the refresh cookie to `Secure` and `SameSite=None`, so the Vercel site can send it to this API. CORS allows credentials and only the origins in `CORS_ORIGINS`.
+
+### Free-tier keep-alive
+
+The backend includes a code-level keep-alive job. Every four minutes it runs
+`SELECT 1` against Neon and requests this service's public `/health` endpoint.
+This is below Neon's default five-minute autosuspend window and Render Free's
+15-minute inbound-traffic window. The interval and public URL are constants in
+`backend/app/core/keep_alive.py` (`KEEP_ALIVE_INTERVAL_SECONDS` and
+`KEEP_ALIVE_URL`). Set the `KEEP_ALIVE_ENABLED` environment variable to `true`
+to run the job; it is disabled by default.
+
+This deliberately keeps both services active. A continuously running service
+uses Render's free instance hours and prevents Neon from scaling to zero, which
+can consume Neon's free compute allowance quickly. Remove or increase the job
+if preserving free-tier compute is more important than avoiding cold starts.
 
 ## Vercel (frontend)
 
