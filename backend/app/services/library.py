@@ -25,6 +25,7 @@ def list_library(
     *,
     status_filter: LibraryStatus | None,
     page: int,
+    query: str | None = None,
     client: AnimeSource | None = None,
 ) -> LibraryListResponse:
     watched_counts = (
@@ -39,6 +40,18 @@ def list_library(
     filters = [UserAnime.user_id == user.id]
     if status_filter is not None:
         filters.append(UserAnime.status == status_filter.value)
+    if query:
+        search_terms = query.lower().split()
+        term_filters = []
+        for term in search_terms:
+            term_filters.append(
+                (Anime.title_english.ilike(f"%{term}%")) | (Anime.title_romaji.ilike(f"%{term}%"))
+            )
+        if term_filters:
+            combined = term_filters[0]
+            for f in term_filters[1:]:
+                combined = combined & f
+            filters.append(combined)
 
     rows = db.execute(
         select(

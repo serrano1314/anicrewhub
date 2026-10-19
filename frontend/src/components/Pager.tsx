@@ -1,4 +1,4 @@
-import { UI, cn } from '../lib/ui'
+import { cn } from '../lib/ui'
 
 type PagerProps = {
   page: number
@@ -17,18 +17,28 @@ export function Pager({ page, hasNext, onPage }: PagerProps) {
         type="button"
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
-        className={cn(UI.btn, UI.btnSecondary, 'py-2')}
+        aria-label="Previous page"
+        className={cn(
+          'inline-flex size-9 items-center justify-center rounded-full text-zinc-400 transition-colors hover:text-zinc-50 disabled:pointer-events-none disabled:opacity-40',
+        )}
       >
-        Previous
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       <span className="text-sm text-zinc-400">Page {page}</span>
       <button
         type="button"
         disabled={!hasNext}
         onClick={() => onPage(page + 1)}
-        className={cn(UI.btn, UI.btnSecondary, 'py-2')}
+        aria-label="Next page"
+        className={cn(
+          'inline-flex size-9 items-center justify-center rounded-full text-zinc-400 transition-colors hover:text-zinc-50 disabled:pointer-events-none disabled:opacity-40',
+        )}
       >
-        Next
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
     </div>
   )

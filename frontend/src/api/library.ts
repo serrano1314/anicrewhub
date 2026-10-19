@@ -11,10 +11,14 @@ import { apiFetch, readApiError, readJson } from './client'
 export function fetchLibrary(
   status: LibraryStatus | undefined,
   page: number,
+  query: string = '',
 ): Promise<LibraryListResponse> {
   const params = new URLSearchParams({ page: String(page) })
   if (status) {
     params.set('status', status)
+  }
+  if (query) {
+    params.set('q', query)
   }
   return apiFetch(`/api/v1/library?${params.toString()}`).then((response) =>
     readJson<LibraryListResponse>(response),

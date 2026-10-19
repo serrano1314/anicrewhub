@@ -57,10 +57,11 @@ def _call(action: Callable[[], T]) -> T:
 def read_library(
     status_filter: LibraryStatus | None = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
+    q: str | None = Query(default=None, alias="q"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> LibraryListResponse:
-    return list_library(db, current_user, status_filter=status_filter, page=page)
+    return list_library(db, current_user, status_filter=status_filter, page=page, query=q)
 
 
 @router.post("", response_model=LibraryEntryResponse, status_code=status.HTTP_201_CREATED)

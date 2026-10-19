@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
@@ -36,10 +37,27 @@ export function LibraryPage() {
   const status = statusParam && isLibraryStatus(statusParam) ? statusParam : undefined
   const page = parsePage(params.get('page'))
   const activeTab = status ?? 'all'
+  const [searchInput, setSearchInput] = useState(params.get('q') ?? '')
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = searchInput.trim()
+      const updated = new URLSearchParams(params)
+      if (trimmed) {
+        updated.set('q', trimmed)
+        updated.delete('page')
+      } else {
+        updated.delete('q')
+      }
+      setParams(updated)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput, params, setParams])
+
+  const query = params.get('q')?.trim() ?? ''
   const listQuery = useQuery({
-    queryKey: ['library', status ?? 'all', page],
-    queryFn: () => fetchLibrary(status, page),
+    queryKey: ['library', status ?? 'all', page, query],
+    queryFn: () => fetchLibrary(status, page, query),
   })
 
   const plusOne = useMutation({
@@ -87,6 +105,16 @@ export function LibraryPage() {
   return (
     <section className={UI.page}>
       <PageHeader title="My List" description="Track progress and jump back into any show." />
+      <div className="mb-4">
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search your saved anime…"
+          className={cn(UI.input, 'w-full', 'rounded-full')}
+          aria-label="Search your saved anime"
+        />
+      </div>
       <div className="ui-tablist" role="tablist" aria-label="List status">
         {TABS.map((tab) => {
           const selected = activeTab === tab.id
