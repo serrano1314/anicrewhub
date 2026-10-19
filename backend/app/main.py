@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,10 +28,18 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+# 1. Define a clean FastAPI-compatible lifespan wrapper
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Delegate implementation cleanly to your original parameterized context manager
+    async with keep_alive_lifespan(enabled=KEEP_ALIVE_ENABLED):
+        yield
 
+
+# 2. Pass the signature of the wrapper function directly to FastAPI
 app = FastAPI(
     title="Anime Tracker",
-    lifespan=keep_alive_lifespan(enabled=KEEP_ALIVE_ENABLED),
+    lifespan=lifespan, 
 )
 
 app.add_middleware(
