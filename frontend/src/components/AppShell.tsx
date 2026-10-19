@@ -39,8 +39,10 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Search',
     icon: ({ active }) => (
       <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">
-        <circle cx="11" cy="11" r="7" />
-        <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="M15.25 15.25L19.5 19.5" strokeLinecap="round" />
+        <line x1="10.5" y1="7.75" x2="10.5" y2="13.25" strokeLinecap="round" />
+        <line x1="7.75" y1="10.5" x2="13.25" y2="10.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -113,7 +115,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_55%)]" />
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-zinc-950/75 backdrop-blur-xl">
+      <header className="relative sticky top-0 z-40 border-b border-white/5 bg-zinc-950/75 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:gap-4">
           <NavLink
             to="/"
@@ -127,7 +129,7 @@ export function AppShell() {
           </NavLink>
 
           <nav
-            className="relative mx-auto hidden w-40 grid-cols-3 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid"
+            className="relative mx-auto hidden w-40 grid-cols-3 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid md:mx-auto md:fixed md:left-1/2 md:-translate-x-1/2 md:top-16 md:z-50 md:bg-zinc-900/90 md:backdrop-blur-xl md:shadow-xl md:border-white/15"
             aria-label="Main"
           >
             <NavigationItems />
@@ -178,7 +180,7 @@ export function AppShell() {
         className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Main"
       >
-        <div className="pointer-events-auto relative grid w-full max-w-xs grid-cols-3 items-stretch rounded-full border border-white/15 bg-zinc-900/55 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
+        <div className="pointer-events-auto relative grid w-full max-w-xs grid-cols-3 items-stretch rounded-full border border-white/15 bg-zinc-900/55 py-4 px-2 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
           <NavigationItems compact />
         </div>
       </nav>
