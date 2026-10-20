@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.sites import AnimeSiteCreateRequest, AnimeSiteResponse, SiteCreateRequest, SiteResponse, SiteUpdateRequest
+from app.schemas.sites import (
+    AnimeSiteCreateRequest,
+    AnimeSiteResponse,
+    AnimeSiteUpdateRequest,
+    SiteCreateRequest,
+    SiteResponse,
+    SiteUpdateRequest,
+)
 from app.services.sites import (
     add_anime_site,
     create_site,
@@ -15,6 +22,7 @@ from app.services.sites import (
     list_sites,
     remove_anime_site,
     update_site,
+    update_anime_site,
 )
 
 router = APIRouter(tags=["sites"])
@@ -78,6 +86,17 @@ def post_anime_site(
     current_user: User = Depends(get_current_user),
 ) -> AnimeSiteResponse:
     return add_anime_site(db, current_user, anilist_id, body)
+
+
+@router.patch("/library/{anilist_id}/sites/{site_id}", response_model=AnimeSiteResponse)
+def patch_anime_site(
+    body: AnimeSiteUpdateRequest,
+    anilist_id: int = Path(ge=1),
+    site_id: UUID = Path(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AnimeSiteResponse:
+    return update_anime_site(db, current_user, anilist_id, site_id, body)
 
 
 @router.delete("/library/{anilist_id}/sites/{site_id}", status_code=status.HTTP_204_NO_CONTENT)

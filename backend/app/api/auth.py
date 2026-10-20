@@ -21,8 +21,8 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     TokenResponse,
 )
-from app.schemas.user import UserResponse
-from app.services.auth import authenticate_user, get_user_by_id, register_user
+from app.schemas.user import AvatarUpdateRequest, ProfileUpdateRequest, UserResponse
+from app.services.auth import authenticate_user, get_user_by_id, register_user, update_user_profile
 from app.services.password_reset import change_password, request_password_reset, reset_password_with_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -83,6 +83,27 @@ def logout(
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.patch("/me/avatar", response_model=UserResponse)
+def update_avatar(
+    body: AvatarUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    current_user.avatar_id = body.avatar_id
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.patch("/me/profile", response_model=UserResponse)
+def update_profile(
+    body: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    return update_user_profile(db, current_user, body.email, body.username)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

@@ -7,7 +7,9 @@ from app.services.anilist import (
     AniListUnavailable,
     episode_count,
     map_media,
+    map_related_anime,
 )
+from app.schemas.anime import AnimeDiscoveryKind
 
 
 class FakeHttp:
@@ -38,6 +40,8 @@ def _media() -> dict[str, object]:
         "coverImage": {"large": "https://example.com/one-piece.jpg"},
         "format": "TV",
         "episodes": None,
+        "averageScore": 87,
+        "meanScore": 82,
         "status": "RELEASING",
         "seasonYear": 1999,
         "externalLinks": [
@@ -50,7 +54,7 @@ def _media() -> dict[str, object]:
             {"site": "Official Site", "url": "https://one-piece.com", "type": "INFO"},
             {"site": "", "url": "https://example.com", "type": "STREAMING"},
         ],
-        "description": "raw graphql field that must not leak",
+        "description": "A pirate crew searches for the legendary treasure.",
     }
 
 
@@ -65,19 +69,128 @@ def test_map_media_keeps_our_fields_and_streaming_links_only() -> None:
         "title_english",
         "title_synonyms",
         "cover_url",
+        "description",
         "format",
         "total_episodes",
+        "average_score",
         "airing_status",
         "season_year",
         "external_links",
+        "details",
     }
     assert dumped["anilist_id"] == 21
     assert dumped["title_synonyms"] == ["OP"]
+    assert dumped["description"] == "A pirate crew searches for the legendary treasure."
     assert dumped["total_episodes"] is None
+    assert dumped["average_score"] == 87
     assert dumped["airing_status"] == "RELEASING"
     assert dumped["external_links"] == [
         {"site": "Crunchyroll", "url": "https://www.crunchyroll.com/one-piece"}
     ]
+    assert dumped["details"]["genres"] == []
+
+
+def test_map_media_reads_extended_details() -> None:
+    media = _media()
+    media.update(
+        {
+            "genres": ["Action", "Adventure"],
+            "source": "MANGA",
+            "duration": 24,
+            "countryOfOrigin": "JP",
+            "season": "FALL",
+            "startDate": {"year": 1999, "month": 10, "day": 20},
+            "studios": {"nodes": [{"name": "Toei Animation"}]},
+            "trailer": {"site": "youtube", "id": "abc123"},
+            "tags": [
+                {"name": "Pirates", "rank": 90, "isMediaSpoiler": False},
+                {"name": "Secret", "rank": 30, "isMediaSpoiler": True},
+            ],
+            "nextAiringEpisode": {"episode": 1181, "airingAt": 1_800_000_000},
+            "relations": {
+                "edges": [
+                    {
+                        "relationType": "PREQUEL",
+                        "node": {
+                            "id": 20,
+                            "type": "ANIME",
+                            "title": {"romaji": "One Piece: Episode 0", "english": None},
+                            "format": "OVA",
+                            "coverImage": {"medium": "https://example.com/prequel.jpg"},
+                        },
+                    },
+                    {
+                        "relationType": "ADAPTATION",
+                        "node": {
+                            "id": 99,
+                            "type": "MANGA",
+                            "title": {"romaji": "Manga", "english": None},
+                        },
+                    },
+                ]
+            },
+        }
+    )
+    mapped = map_media(media)
+    assert mapped is not None
+    assert mapped.details.genres == ["Action", "Adventure"]
+    assert mapped.details.studios == ["Toei Animation"]
+    assert mapped.details.start_date == "1999-10-20"
+    assert mapped.details.trailer_url == "https://www.youtube.com/watch?v=abc123"
+    assert [tag.name for tag in mapped.details.tags] == ["Pirates", "Secret"]
+    assert mapped.details.related_anime == []
+    assert map_related_anime(media)[0].title == "One Piece: Episode 0"
+    assert len(map_related_anime(media)) == 1
+
+
+def test_fetch_related_anime_uses_a_separate_relations_query() -> None:
+    http = FakeHttp(
+        [
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "Media": {
+                            "relations": {
+                                "edges": [
+                                    {
+                                        "relationType": "PREQUEL",
+                                        "node": {
+                                            "id": 20,
+                                            "type": "ANIME",
+                                            "title": {"romaji": "Episode 0", "english": None},
+                                            "format": "OVA",
+                                            "coverImage": {"medium": "https://example.com/cover.jpg"},
+                                        },
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+            )
+        ]
+    )
+    related = AniListClient(http).fetch_related(21)
+    request = http.calls[0]["json"]
+    assert isinstance(request, dict)
+    assert "relations" in request["query"]
+    assert related[0].title == "Episode 0"
+    assert related[0].relation == "PREQUEL"
+
+
+def test_map_media_uses_mean_score_when_average_score_is_unavailable() -> None:
+    media = _media()
+    media["averageScore"] = None
+    mapped = map_media(media)
+    assert mapped is not None
+    assert mapped.average_score == 82
+
+
+def test_map_media_keeps_average_score_when_mean_score_is_also_present() -> None:
+    mapped = map_media(_media())
+    assert mapped is not None
+    assert mapped.average_score == 87
 
 
 def test_releasing_show_uses_episodes_aired_when_the_total_is_unknown() -> None:
@@ -150,6 +263,49 @@ def test_search_uses_memory_cache_and_normalizes_the_query() -> None:
     assert first.has_next_page is True
 
 
+def test_discovery_uses_expected_sort_and_memory_cache() -> None:
+    http = FakeHttp(
+        [
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "Page": {
+                            "pageInfo": {"currentPage": 1, "hasNextPage": False},
+                            "media": [_media()],
+                        }
+                    }
+                },
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "Page": {
+                            "pageInfo": {"currentPage": 1, "hasNextPage": False},
+                            "media": [_media()],
+                        }
+                    }
+                },
+            ),
+        ]
+    )
+    client = AniListClient(http, search_ttl_seconds=60)
+
+    trending = client.discover(AnimeDiscoveryKind.trending)
+    assert client.discover(AnimeDiscoveryKind.trending) == trending
+    latest = client.discover(AnimeDiscoveryKind.latest)
+
+    assert len(http.calls) == 2
+    trending_variables = http.calls[0]["json"]["variables"]
+    latest_variables = http.calls[1]["json"]["variables"]
+    assert trending_variables["sort"] == ["TRENDING_DESC"]
+    assert "status" not in trending_variables
+    assert latest_variables["sort"] == ["START_DATE_DESC"]
+    assert latest_variables["status"] == "RELEASING"
+    assert trending.results[0].average_score == 87
+
+
 def test_search_cache_expires() -> None:
     now = {"t": 0.0}
     http = FakeHttp(
@@ -182,6 +338,7 @@ def test_rate_limit_backoff_then_success() -> None:
     client = AniListClient(http, sleep=delays.append)
     media = client.fetch_media(21)
     assert media.anilist_id == 21
+    assert "relations" not in http.calls[1]["json"]["query"]
     assert delays == [2.0]
     assert len(http.calls) == 2
 
@@ -222,4 +379,3 @@ def test_timeout_is_unavailable() -> None:
         pass
     else:
         raise AssertionError("expected unavailable")
-

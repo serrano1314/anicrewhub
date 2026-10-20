@@ -8,10 +8,10 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.anime import Anime
 from app.models.user import User
-from app.schemas.anime import AnimeResponse, AnimeSearchResponse
+from app.schemas.anime import AnimeDiscoveryKind, AnimeResponse, AnimeSearchResponse, RelatedAnime
 from app.schemas.watch_links import WatchLink
-from app.services.anime import get_anime, search_anime
-from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited
+from app.services.anime import discover_anime, get_anime, search_anime
+from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited, get_anilist_client
 from app.services.progress import MAX_EPISODE_NUMBER
 from app.services.watch_links import list_watch_links
 
@@ -56,6 +56,11 @@ def search(
     return _call(lambda: search_anime(query, page))
 
 
+@router.get("/discover/{kind}", response_model=AnimeSearchResponse)
+def discover(kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
+    return _call(lambda: discover_anime(kind))
+
+
 @router.get(
     "/{anilist_id}/episodes/{episode_number}/watch-links",
     response_model=list[WatchLink],
@@ -75,7 +80,15 @@ def read_anime(
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ) -> Anime:
-    return _call(lambda: get_anime(db, anilist_id))
+    return _call(lambda: get_anime(db, anilist_id, require_details=True))
+
+
+@router.get("/{anilist_id}/related", response_model=list[RelatedAnime])
+def read_related_anime(
+    anilist_id: int = Path(ge=1),
+    _current_user: User = Depends(get_current_user),
+) -> list[RelatedAnime]:
+    return _call(lambda: get_anilist_client().fetch_related(anilist_id))
 
 
 @router.post("/from-anilist/{anilist_id}", response_model=AnimeResponse)

@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchLibrary, setEpisodeWatched, updateLibrary } from '../api/library'
 import { EmptyState, ErrorPanel } from '../components/PageStatus'
+import { AnimeSpotlightCarousel } from '../components/AnimeSpotlightCarousel'
 import { Pager } from '../components/Pager'
 import { ProgressMeter } from '../components/ProgressMeter'
-import { Select } from '../components/Select'
 import { StarRating } from '../components/StarRating'
+import { ScrollingTitle } from '../components/ScrollingTitle'
 import { WatchLinksDialog } from '../components/WatchLinksDialog'
 import { displayTitle, metaLine } from '../lib/display'
 import { nextEpisodeToMark } from '../lib/episodes'
@@ -18,6 +19,7 @@ import {
   STATUS_LABELS,
   isLibraryStatus,
   type LibrarySort,
+  type LibrarySummary,
   type LibraryStatus,
 } from '../types/library'
 
@@ -54,7 +56,12 @@ function getSavedDisplayMode(): DisplayMode {
   }
 }
 
-const TABS: { id: string; label: string; status?: LibraryStatus; favorites?: boolean }[] = [
+const TABS: {
+  id: string
+  label: string
+  status?: LibraryStatus
+  favorites?: boolean
+}[] = [
   { id: 'all', label: 'All' },
   { id: 'favorites', label: 'Favorites', favorites: true },
   { id: 'watching', label: STATUS_LABELS.watching, status: 'watching' },
@@ -99,48 +106,32 @@ function parsePage(value: string | null): number {
   return page
 }
 
-function ScrollingTitle({ title }: { title: string }) {
-  const containerRef = useRef<HTMLHeadingElement>(null)
-  const textRef = useRef<HTMLSpanElement>(null)
-  const [scrollDistance, setScrollDistance] = useState(0)
-
-  useEffect(() => {
-    const container = containerRef.current
-    const text = textRef.current
-    if (!container || !text) return
-
-    const measure = () => {
-      setScrollDistance(Math.max(0, text.scrollWidth - container.clientWidth))
-    }
-
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(container)
-    observer.observe(text)
-    return () => observer.disconnect()
-  }, [title])
-
-  const style: CSSProperties & { '--title-scroll-distance'?: string; '--title-scroll-duration'?: string } =
-    scrollDistance > 0
-      ? {
-          '--title-scroll-distance': `${scrollDistance}px`,
-          '--title-scroll-duration': `${Math.max(8, scrollDistance / 24 + 4)}s`,
-        }
-      : {}
-
+function DisplayModeIcon({ mode }: { mode: DisplayMode }) {
   return (
-    <h2 ref={containerRef} title={title} className="min-w-0 overflow-hidden whitespace-nowrap font-medium">
-      <span
-        ref={textRef}
-        style={style}
-        className={cn(
-          'inline-block max-w-full truncate align-bottom',
-          scrollDistance > 0 && 'library-title-marquee max-w-none',
-        )}
-      >
-        {title}
-      </span>
-    </h2>
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4">
+      {mode === 'compact' ? (
+        <>
+          <rect x="2" y="2" width="6" height="7" rx="1" fill="currentColor" />
+          <rect x="9" y="2" width="6" height="7" rx="1" fill="currentColor" />
+          <rect x="2" y="11" width="6" height="7" rx="1" fill="currentColor" />
+          <rect x="9" y="11" width="6" height="7" rx="1" fill="currentColor" />
+          <rect x="16" y="2" width="2" height="16" rx="1" fill="currentColor" opacity=".55" />
+        </>
+      ) : mode === 'normal' ? (
+        <>
+          <rect x="2" y="2" width="7" height="7" rx="1" fill="currentColor" />
+          <rect x="11" y="2" width="7" height="7" rx="1" fill="currentColor" />
+          <rect x="2" y="11" width="7" height="7" rx="1" fill="currentColor" />
+          <rect x="11" y="11" width="7" height="7" rx="1" fill="currentColor" />
+        </>
+      ) : (
+        <>
+          <rect x="2" y="3" width="16" height="5" rx="1" fill="currentColor" />
+          <rect x="2" y="10" width="16" height="2" rx="1" fill="currentColor" opacity=".7" />
+          <rect x="2" y="14" width="12" height="2" rx="1" fill="currentColor" opacity=".7" />
+        </>
+      )}
+    </svg>
   )
 }
 
@@ -154,15 +145,65 @@ export function LibraryPage() {
   const sortParam = params.get('sort')
   const sort = isLibrarySort(sortParam) ? sortParam : 'updated'
   const activeTab = favorites ? 'favorites' : status ?? 'all'
-  const activeTabLabel = TABS.find((tab) => tab.id === activeTab)?.label ?? 'All'
   const [searchInput, setSearchInput] = useState(params.get('q') ?? '')
+  const [searchOpen, setSearchOpen] = useState(Boolean(params.get('q')))
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const sortMenuRef = useRef<HTMLDivElement>(null)
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
+  const layoutMenuRef = useRef<HTMLDivElement>(null)
+  const cardsRef = useRef<HTMLUListElement>(null)
   const [displayMode, setDisplayModeValue] = useState<DisplayMode>(getSavedDisplayMode)
+  const [collectionSummary, setCollectionSummary] = useState<LibrarySummary | null>(null)
   const [openActionsId, setOpenActionsId] = useState<number | null>(null)
   const [watchSelection, setWatchSelection] = useState<{
     anilistId: number
     title: string
     episode: number
   } | null>(null)
+
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus({ preventScroll: true })
+    }
+  }, [searchOpen])
+
+  useEffect(() => {
+    if (!sortMenuOpen) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!sortMenuRef.current?.contains(event.target as Node)) {
+        setSortMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+  }, [sortMenuOpen])
+
+  useEffect(() => {
+    if (!layoutMenuOpen) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!layoutMenuRef.current?.contains(event.target as Node)) {
+        setLayoutMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+  }, [layoutMenuOpen])
+
+  useEffect(() => {
+    if (openActionsId === null) return
+    function closeOnOutsideClick(event: PointerEvent) {
+      const clickedCard =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>('[data-library-card-id]')
+          : null
+      if (clickedCard?.dataset.libraryCardId !== String(openActionsId)) {
+        setOpenActionsId(null)
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
+  }, [openActionsId])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -192,6 +233,12 @@ export function LibraryPage() {
     queryKey: ['library', status ?? 'all', favorites, page, query, sort],
     queryFn: () => fetchLibrary(status, page, query, favorites, sort),
   })
+
+  useEffect(() => {
+    if (listQuery.data?.summary) {
+      setCollectionSummary(listQuery.data.summary)
+    }
+  }, [listQuery.data?.summary])
 
   const episodeMutation = useMutation({
     mutationFn: (input: { anilistId: number; episode: number; watched: boolean }) =>
@@ -273,18 +320,19 @@ export function LibraryPage() {
 
   return (
     <section className={UI.page}>
+      <AnimeSpotlightCarousel />
       <PageHeader title="My Collection" description="Track progress and jump back into any show." />
-      {listQuery.data?.summary ? (
+      {collectionSummary ? (
         <div
           className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
           aria-label="Collection overview"
         >
           {[
-            { label: 'Saved', value: listQuery.data.summary.total, tone: 'text-zinc-100' },
-            { label: 'Watching', value: listQuery.data.summary.watching, tone: 'text-indigo-200' },
-            { label: 'Completed', value: listQuery.data.summary.completed, tone: 'text-emerald-200' },
-            { label: 'Plan to watch', value: listQuery.data.summary.plan_to_watch, tone: 'text-sky-200' },
-            { label: 'Favorites', value: listQuery.data.summary.favorites, tone: 'text-rose-200' },
+            { label: 'Saved', value: collectionSummary.total, tone: 'text-zinc-100' },
+            { label: 'Watching', value: collectionSummary.watching, tone: 'text-indigo-200' },
+            { label: 'Completed', value: collectionSummary.completed, tone: 'text-emerald-200' },
+            { label: 'Plan to watch', value: collectionSummary.plan_to_watch, tone: 'text-sky-200' },
+            { label: 'Favorites', value: collectionSummary.favorites, tone: 'text-rose-200' },
           ].map((item) => (
             <div
               key={item.label}
@@ -296,29 +344,6 @@ export function LibraryPage() {
           ))}
         </div>
       ) : null}
-      <div className="relative">
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search your saved anime…"
-          className={cn(UI.input, 'w-full rounded-full pr-11')}
-          aria-label="Search your saved anime"
-        />
-        {searchInput ? (
-          <button
-            type="button"
-            aria-label="Clear search"
-            title="Clear search"
-            onClick={() => setSearchInput('')}
-            className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100"
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
-              <path d="m5 5 10 10M15 5 5 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        ) : null}
-      </div>
       <div className="ui-tablist" role="tablist" aria-label="List view">
         {TABS.map((tab) => {
           const selected = activeTab === tab.id
@@ -331,7 +356,11 @@ export function LibraryPage() {
               aria-label={tab.label}
               title={tab.label}
               onClick={() => setTab(tab)}
-              className={cn(UI.pill, 'p-2.5', selected && UI.pillActive)}
+              className={cn(
+                UI.pill,
+                'inline-flex items-center gap-2 whitespace-nowrap p-2.5',
+                selected && UI.pillActive,
+              )}
             >
               <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
                 {tab.id === 'all' ? (
@@ -384,6 +413,155 @@ export function LibraryPage() {
           }}
         />
       ) : null}
+      <div className="flex w-full items-center gap-3">
+        <div
+          className={cn(
+            'relative h-10 min-w-0 transition-[flex-grow] duration-300 ease-out',
+            searchOpen ? 'flex-[1_1_2.5rem]' : 'flex-[0_1_2.5rem]',
+          )}
+        >
+          {searchOpen ? (
+            <>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setSearchOpen(false)
+                  }
+                }}
+                placeholder="Search your saved anime…"
+                className={cn(UI.input, 'h-10 w-1/2 rounded-full pl-4 pr-12')}
+                aria-label="Search your saved anime"
+              />
+              <button
+                type="button"
+                aria-label="Clear and close search"
+                title="Clear and close search"
+                onClick={() => {
+                  setSearchInput('')
+                  setSearchOpen(false)
+                }}
+                className="absolute left top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4">
+                  <path d="m5 5 10 10M15 5 5 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              aria-label="Search your saved anime"
+              title="Search your saved anime"
+              onClick={() => setSearchOpen(true)}
+              className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-zinc-900/50 text-zinc-400 transition hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <circle cx="8.5" cy="8.5" r="5.5" />
+                <path d="m12.5 12.5 4 4" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
+          <div ref={sortMenuRef} className="relative">
+            <button
+              type="button"
+              aria-label={`Sort collection: ${SORT_OPTIONS.find((option) => option.value === sort)?.label ?? 'Recently updated'}`}
+              title="Sort collection"
+              aria-haspopup="listbox"
+              aria-expanded={sortMenuOpen}
+              onClick={() => setSortMenuOpen((open) => !open)}
+              className={cn(
+                'inline-flex size-10 items-center justify-center rounded-full border bg-zinc-900/60 text-zinc-300 transition hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60',
+                sortMenuOpen ? 'border-indigo-300/40 text-indigo-100' : 'border-white/10',
+              )}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                <path d="M4 7h10M18 7h2M4 17h2m4 0h10" />
+                <circle cx="16" cy="7" r="2" fill="currentColor" stroke="none" />
+                <circle cx="8" cy="17" r="2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            {sortMenuOpen ? (
+              <div
+                role="listbox"
+                aria-label="Sort collection"
+                className="absolute right-0 top-full z-[60] mt-2 w-52 rounded-xl border border-white/10 bg-zinc-900/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl"
+              >
+                {SORT_OPTIONS.map((option) => {
+                  const selected = option.value === sort
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      onClick={() => {
+                        setSort(option.value)
+                        setSortMenuOpen(false)
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-white/5',
+                        selected ? 'bg-indigo-500/15 text-indigo-100' : 'text-zinc-300',
+                      )}
+                    >
+                      {option.label}
+                      {selected ? <span aria-hidden="true" className="text-indigo-300">✓</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+          <div
+            ref={layoutMenuRef}
+            role="group"
+            aria-label="Card display size"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setLayoutMenuOpen(false)
+            }}
+            className={cn(
+              'group relative hidden h-10 items-center overflow-hidden rounded-full border bg-zinc-900/60 text-zinc-300 transition-[width,background-color,border-color] duration-200 hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-within:border-indigo-300/40 focus-within:bg-indigo-500/10 lg:flex',
+              layoutMenuOpen ? 'w-[104px] border-indigo-300/40' : 'w-10 border-white/10 hover:w-[104px] focus-within:w-[104px]',
+            )}
+          >
+            <button
+              type="button"
+              aria-label={`Card layout: ${DISPLAY_MODES.find((mode) => mode.id === displayMode)?.label ?? 'Normal'}. Open layout choices`}
+              title="Card layout"
+              aria-haspopup="true"
+              aria-expanded={layoutMenuOpen}
+              onClick={() => setLayoutMenuOpen((open) => !open)}
+              className="inline-flex size-10 shrink-0 items-center justify-center group-hover:hidden group-focus-within:hidden"
+            >
+              <DisplayModeIcon mode={displayMode} />
+            </button>
+            {DISPLAY_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                aria-label={`${mode.label} card layout`}
+                title={`${mode.label} card layout`}
+                aria-pressed={displayMode === mode.id}
+                onClick={() => {
+                  setDisplayMode(mode.id)
+                  setLayoutMenuOpen(false)
+                }}
+                className={cn(
+                  'hidden size-8 shrink-0 items-center justify-center rounded-full transition-colors group-hover:inline-flex group-focus-within:inline-flex',
+                  displayMode === mode.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-zinc-400 hover:text-zinc-100',
+                )}
+              >
+                <DisplayModeIcon mode={mode.id} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       {listQuery.data && listQuery.data.results.length === 0 ? (
         <EmptyState>
           <div className="space-y-2">
@@ -447,71 +625,13 @@ export function LibraryPage() {
           </div>
         </EmptyState>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-base font-medium tracking-wide text-zinc-300" aria-live="polite">
-          {activeTabLabel}
-        </p>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Select
-            value={sort}
-            onChange={setSort}
-            options={SORT_OPTIONS}
-            aria-label="Sort collection"
-            className="w-48"
-          />
-          <div
-            className="hidden rounded-full border border-white/10 bg-zinc-950/40 p-1 px-1.5 lg:flex"
-            role="group"
-            aria-label="Card display size"
-          >
-            {DISPLAY_MODES.map((mode) => (
-            <button
-              key={mode.id}
-              type="button"
-              aria-label={`${mode.label} card layout`}
-              title={`${mode.label} card layout`}
-              aria-pressed={displayMode === mode.id}
-              onClick={() => setDisplayMode(mode.id)}
-              className={cn(
-                'rounded-full p-2 transition-colors',
-                displayMode === mode.id ? 'bg-indigo-500/20 text-indigo-100' : 'text-zinc-400 hover:text-zinc-100',
-              )}
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
-                {mode.id === 'compact' ? (
-                  <>
-                    <rect x="2" y="2" width="6" height="7" rx="1" fill="currentColor" />
-                    <rect x="9" y="2" width="6" height="7" rx="1" fill="currentColor" />
-                    <rect x="2" y="11" width="6" height="7" rx="1" fill="currentColor" />
-                    <rect x="9" y="11" width="6" height="7" rx="1" fill="currentColor" />
-                    <rect x="16" y="2" width="2" height="16" rx="1" fill="currentColor" opacity=".55" />
-                  </>
-                ) : mode.id === 'normal' ? (
-                  <>
-                    <rect x="2" y="2" width="7" height="7" rx="1" fill="currentColor" />
-                    <rect x="11" y="2" width="7" height="7" rx="1" fill="currentColor" />
-                    <rect x="2" y="11" width="7" height="7" rx="1" fill="currentColor" />
-                    <rect x="11" y="11" width="7" height="7" rx="1" fill="currentColor" />
-                  </>
-                ) : (
-                  <>
-                    <rect x="2" y="3" width="16" height="5" rx="1" fill="currentColor" />
-                    <rect x="2" y="10" width="16" height="2" rx="1" fill="currentColor" opacity=".7" />
-                    <rect x="2" y="14" width="12" height="2" rx="1" fill="currentColor" opacity=".7" />
-                  </>
-                )}
-              </svg>
-            </button>
-            ))}
-          </div>
-        </div>
-      </div>
       {listQuery.isPending ? (
         <div className="sr-only" role="status" aria-live="polite">
           Loading your list…
         </div>
       ) : null}
       <ul
+        ref={cardsRef}
         className={cn(
           'search-results grid items-start gap-4',
           displayMode === 'compact' && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4',
@@ -605,9 +725,12 @@ export function LibraryPage() {
           return (
             <li
               key={entry.anilist_id}
+              data-library-card-id={entry.anilist_id}
               className={cn(
                 UI.cardInteractive,
                 'search-results-card group relative flex flex-col overflow-hidden',
+                entry.is_favorite &&
+                  'library-favorite-card border-rose-300/25 hover:border-rose-300/40',
                 displayMode === 'compact' ? 'p-3 sm:p-3' : 'p-4 sm:p-5',
                 displayMode === 'wide' && 'sm:grid sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-center sm:gap-x-5',
               )}
@@ -798,7 +921,7 @@ export function LibraryPage() {
                             {episodePending ? (
                               'Saving…'
                             ) : next == null ? (
-                              'All watched'
+                              'Watched'
                             ) : (
                               <>
                                 <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 shrink-0">
@@ -807,7 +930,7 @@ export function LibraryPage() {
                                     d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm-1.1 12.2-3-3 1.4-1.4 1.6 1.6 3.8-4 1.5 1.4z"
                                   />
                                 </svg>
-                                <span className="truncate">Ep. {next}</span>
+                                <span className="truncate">{next}</span>
                               </>
                             )}
                           </button>
@@ -907,6 +1030,7 @@ export function LibraryPage() {
           anilistId={watchSelection.anilistId}
           title={watchSelection.title}
           episode={watchSelection.episode}
+          groupedSources
           onClose={() => setWatchSelection(null)}
         />
       ) : null}

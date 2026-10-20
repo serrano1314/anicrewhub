@@ -4,8 +4,15 @@ body {
   margin: 0;
   background: #09090b;
   color: #fafafa;
+  font-family: "Avenir Next", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
+}
+
+.brand-wordmark {
+  font-family: "Avenir Next", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.045em;
 }
 
 @layer components {
@@ -227,6 +234,207 @@ html {
   overflow-x: hidden;
 }
 
+.auth-modal-backdrop {
+  animation: auth-modal-backdrop-enter 220ms ease-out both;
+}
+
+.auth-modal-enter {
+  animation: auth-modal-panel-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes auth-modal-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-modal-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.anime-spotlight-slide {
+  animation: anime-spotlight-slide-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.spotlight-description-scroll {
+  max-height: 7rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.spotlight-description-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.spotlight-title-viewport {
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem);
+}
+
+.spotlight-title-scroll {
+  animation: spotlight-title-scroll 9s linear infinite;
+  will-change: transform;
+}
+
+@keyframes spotlight-title-scroll {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  88%,
+  100% {
+    transform: translateX(calc(-1 * var(--spotlight-title-distance, 0px)));
+  }
+}
+
+@keyframes anime-spotlight-slide-enter {
+  from {
+    opacity: 0;
+    transform: translateX(1rem) scale(0.99);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.spotlight-status-menu {
+  transform-origin: top right;
+  overflow: hidden;
+}
+
+.spotlight-status-menu::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.15);
+  content: "";
+  pointer-events: none;
+}
+
+.spotlight-status-menu > button {
+  position: relative;
+  z-index: 1;
+}
+
+.spotlight-status-menu[data-open="true"] {
+  animation: spotlight-status-menu-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.spotlight-status-menu[data-open="false"] {
+  animation: spotlight-status-menu-exit 180ms ease-in both;
+}
+
+@keyframes spotlight-status-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.25);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes spotlight-status-menu-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.25);
+    filter: blur(4px);
+  }
+}
+
+@property --favorite-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.library-favorite-card {
+  border-color: rgb(253 164 175 / 0.28);
+}
+
+.library-favorite-card::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--favorite-border-angle),
+    transparent 0deg 250deg,
+    rgb(251 113 133 / 0.1) 280deg,
+    rgb(253 164 175 / 0.8) 320deg,
+    rgb(251 113 133 / 0.1) 350deg,
+    transparent 360deg
+  );
+  content: "";
+  pointer-events: none;
+  animation: favorite-border-rotation 10s linear infinite;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@keyframes favorite-border-rotation {
+  to {
+    --favorite-border-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-modal-backdrop,
+  .auth-modal-enter {
+    animation: none;
+  }
+
+  .anime-spotlight-slide {
+    animation: none;
+  }
+
+  .spotlight-title-viewport {
+    mask-image: none;
+  }
+
+  .spotlight-title-scroll {
+    animation: none;
+    will-change: auto;
+  }
+
+  .spotlight-status-menu[data-open="true"],
+  .spotlight-status-menu[data-open="false"] {
+    animation: none;
+  }
+
+  .library-favorite-card::after {
+    animation: none;
+  }
+}
+
 .library-actions {
   display: grid;
   grid-template-rows: 0fr;
@@ -255,6 +463,22 @@ html {
 .library-title-marquee {
   animation: library-title-scroll var(--title-scroll-duration) linear infinite;
   will-change: transform, opacity;
+}
+
+.library-tab-label {
+  animation: library-tab-label-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: left center;
+}
+
+@keyframes library-tab-label-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes library-title-scroll {
@@ -289,6 +513,10 @@ html {
     animation: none;
     text-overflow: ellipsis;
     transform: none;
+  }
+
+  .library-tab-label {
+    animation: none;
   }
 }
 

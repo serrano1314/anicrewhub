@@ -11,7 +11,7 @@ from app.core.security import decode_access_token_identity
 
 logger = logging.getLogger(__name__)
 
-LOG_BODY_LIMIT = 9_000
+LOG_BODY_LIMIT = 2_000
 SENSITIVE_FIELDS = {
     "access_token",
     "jwt",

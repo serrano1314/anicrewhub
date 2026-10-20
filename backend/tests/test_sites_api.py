@@ -94,6 +94,14 @@ def test_site_crud_and_per_anime_links(client: TestClient, db: Session) -> None:
     assert linked.json()["anime_url"] == "https://watch.example/one-piece"
     assert linked.json()["name"] == "My Site"
 
+    patched_link = client.patch(
+        f"/api/v1/library/21/sites/{site_id}",
+        json={"anime_url": "https://watch.example/one-piece-season-2"},
+        headers=headers,
+    )
+    assert patched_link.status_code == 200
+    assert patched_link.json()["anime_url"] == "https://watch.example/one-piece-season-2"
+
     duplicate = client.post(
         "/api/v1/library/21/sites",
         json={"site_id": site_id},
@@ -104,14 +112,20 @@ def test_site_crud_and_per_anime_links(client: TestClient, db: Session) -> None:
     anime_sites = client.get("/api/v1/library/21/sites", headers=headers)
     assert anime_sites.status_code == 200
     assert len(anime_sites.json()) == 1
+    assert anime_sites.json()[0]["anime_url"] == "https://watch.example/one-piece-season-2"
 
     links = client.get("/api/v1/anime/21/episodes/812/watch-links", headers=headers)
     assert links.status_code == 200
     assert links.json() == [
         {
             "label": "My Site",
-            "url": "https://watch.example/one-piece",
+            "url": "https://watch.example/one-piece-season-2",
             "source": "saved",
+        },
+        {
+            "label": "Crunchyroll",
+            "url": "https://www.crunchyroll.com/one-piece",
+            "source": "official",
         },
         {
             "label": "Google search",
@@ -119,6 +133,16 @@ def test_site_crud_and_per_anime_links(client: TestClient, db: Session) -> None:
             "source": "search",
         },
     ]
+
+    cleared_link = client.patch(
+        f"/api/v1/library/21/sites/{site_id}",
+        json={"anime_url": ""},
+        headers=headers,
+    )
+    assert cleared_link.status_code == 200
+    assert cleared_link.json()["anime_url"] is None
+    templated_links = client.get("/api/v1/anime/21/episodes/812/watch-links", headers=headers)
+    assert templated_links.json()[0]["url"] == "https://watch.example/one-piece-episode-812"
 
     removed_link = client.delete(f"/api/v1/library/21/sites/{site_id}", headers=headers)
     assert removed_link.status_code == 204
@@ -150,6 +174,11 @@ def test_sites_are_private_per_user(client: TestClient, db: Session) -> None:
     assert client.patch(f"/api/v1/sites/{site_id}", json={"name": "Stolen"}, headers=other).status_code == 404
     assert client.delete(f"/api/v1/sites/{site_id}", headers=other).status_code == 404
     assert client.get("/api/v1/library/21/sites", headers=other).json() == []
+    assert client.patch(
+        f"/api/v1/library/21/sites/{site_id}",
+        json={"anime_url": "https://other.example"},
+        headers=other,
+    ).status_code == 404
     assert client.delete(f"/api/v1/library/21/sites/{site_id}", headers=other).status_code == 404
 
 
@@ -158,6 +187,23 @@ def test_invalid_site_url_is_rejected(client: TestClient) -> None:
     response = client.post(
         "/api/v1/sites",
         json={"name": "Bad", "base_url": "javascript:alert(1)"},
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
+def test_invalid_anime_site_url_is_rejected(client: TestClient, db: Session) -> None:
+    _cache(db)
+    headers = _auth(client)
+    site = client.post(
+        "/api/v1/sites",
+        json={"name": "Mine", "base_url": "https://watch.example"},
+        headers=headers,
+    ).json()
+    client.post("/api/v1/library/21/sites", json={"site_id": site["id"]}, headers=headers)
+    response = client.patch(
+        f"/api/v1/library/21/sites/{site['id']}",
+        json={"anime_url": "javascript:alert(1)"},
         headers=headers,
     )
     assert response.status_code == 422

@@ -86,8 +86,7 @@ def list_watch_links(db: Session, user: User, anilist_id: int, episode: int) -> 
             if url is None:
                 continue
             links.append(WatchLink(label=site.name, url=url, source=WatchLinkSource.saved))
-    else:
-        links.extend(_official_links(anime))
+    links.extend(_official_links(anime))
 
     links.append(
         WatchLink(

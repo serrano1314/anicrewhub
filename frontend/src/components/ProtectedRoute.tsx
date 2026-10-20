@@ -1,8 +1,9 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { AuthRecoveryScreen } from './AuthRecoveryScreen'
 
 export function ProtectedRoute() {
-  const { isReady, isAuthenticated } = useAuth()
+  const { isReady, isAuthenticated, authError } = useAuth()
 
   if (!isReady) {
     return (
@@ -63,8 +64,12 @@ export function ProtectedRoute() {
     )
   }
 
+  if (authError) {
+    return <AuthRecoveryScreen />
+  }
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />

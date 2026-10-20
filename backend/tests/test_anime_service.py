@@ -36,6 +36,7 @@ def _data(**overrides: object) -> AnimeData:
         title_english="One Piece",
         title_synonyms=["OP"],
         cover_url="https://example.com/one-piece.jpg",
+        description="A pirate crew searches for the legendary treasure.",
         format="TV",
         total_episodes=None,
         airing_status="RELEASING",
@@ -54,6 +55,7 @@ def test_get_anime_inserts_a_row_when_missing(db: Session) -> None:
     saved = get_anime(db, 21, client=client)
     assert saved.anilist_id == 21
     assert saved.title_romaji == "One Piece"
+    assert saved.description == "A pirate crew searches for the legendary treasure."
     assert saved.external_links == [
         {"site": "Crunchyroll", "url": "https://www.crunchyroll.com/one-piece"}
     ]
