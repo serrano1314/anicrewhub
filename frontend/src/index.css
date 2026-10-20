@@ -227,6 +227,51 @@ html {
   overflow-x: hidden;
 }
 
+@property --favorite-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.library-favorite-card {
+  border-color: rgb(253 164 175 / 0.28);
+}
+
+.library-favorite-card::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--favorite-border-angle),
+    transparent 0deg 250deg,
+    rgb(251 113 133 / 0.1) 280deg,
+    rgb(253 164 175 / 0.8) 320deg,
+    rgb(251 113 133 / 0.1) 350deg,
+    transparent 360deg
+  );
+  content: "";
+  pointer-events: none;
+  animation: favorite-border-rotation 10s linear infinite;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@keyframes favorite-border-rotation {
+  to {
+    --favorite-border-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-favorite-card::after {
+    animation: none;
+  }
+}
+
 .library-actions {
   display: grid;
   grid-template-rows: 0fr;
@@ -255,6 +300,22 @@ html {
 .library-title-marquee {
   animation: library-title-scroll var(--title-scroll-duration) linear infinite;
   will-change: transform, opacity;
+}
+
+.library-tab-label {
+  animation: library-tab-label-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: left center;
+}
+
+@keyframes library-tab-label-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes library-title-scroll {
@@ -289,6 +350,10 @@ html {
     animation: none;
     text-overflow: ellipsis;
     transform: none;
+  }
+
+  .library-tab-label {
+    animation: none;
   }
 }
 

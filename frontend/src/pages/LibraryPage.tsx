@@ -18,6 +18,7 @@ import {
   STATUS_LABELS,
   isLibraryStatus,
   type LibrarySort,
+  type LibrarySummary,
   type LibraryStatus,
 } from '../types/library'
 
@@ -54,14 +55,20 @@ function getSavedDisplayMode(): DisplayMode {
   }
 }
 
-const TABS: { id: string; label: string; status?: LibraryStatus; favorites?: boolean }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'favorites', label: 'Favorites', favorites: true },
-  { id: 'watching', label: STATUS_LABELS.watching, status: 'watching' },
-  { id: 'completed', label: STATUS_LABELS.completed, status: 'completed' },
-  { id: 'plan_to_watch', label: STATUS_LABELS.plan_to_watch, status: 'plan_to_watch' },
-  { id: 'on_hold', label: STATUS_LABELS.on_hold, status: 'on_hold' },
-  { id: 'dropped', label: STATUS_LABELS.dropped, status: 'dropped' },
+const TABS: {
+  id: string
+  label: string
+  description: string
+  status?: LibraryStatus
+  favorites?: boolean
+}[] = [
+  { id: 'all', label: 'All', description: 'Every saved show' },
+  { id: 'favorites', label: 'Favorites', description: 'Your pinned picks', favorites: true },
+  { id: 'watching', label: STATUS_LABELS.watching, description: 'In progress', status: 'watching' },
+  { id: 'completed', label: STATUS_LABELS.completed, description: 'Finished shows', status: 'completed' },
+  { id: 'plan_to_watch', label: STATUS_LABELS.plan_to_watch, description: 'Up next', status: 'plan_to_watch' },
+  { id: 'on_hold', label: STATUS_LABELS.on_hold, description: 'Paused shows', status: 'on_hold' },
+  { id: 'dropped', label: STATUS_LABELS.dropped, description: 'Set aside', status: 'dropped' },
 ]
 
 function LibraryStatusIcon({ status }: { status: LibraryStatus }) {
@@ -154,9 +161,10 @@ export function LibraryPage() {
   const sortParam = params.get('sort')
   const sort = isLibrarySort(sortParam) ? sortParam : 'updated'
   const activeTab = favorites ? 'favorites' : status ?? 'all'
-  const activeTabLabel = TABS.find((tab) => tab.id === activeTab)?.label ?? 'All'
+  const activeTabDescription = TABS.find((tab) => tab.id === activeTab)?.description ?? 'Every saved show'
   const [searchInput, setSearchInput] = useState(params.get('q') ?? '')
   const [displayMode, setDisplayModeValue] = useState<DisplayMode>(getSavedDisplayMode)
+  const [collectionSummary, setCollectionSummary] = useState<LibrarySummary | null>(null)
   const [openActionsId, setOpenActionsId] = useState<number | null>(null)
   const [watchSelection, setWatchSelection] = useState<{
     anilistId: number
@@ -192,6 +200,12 @@ export function LibraryPage() {
     queryKey: ['library', status ?? 'all', favorites, page, query, sort],
     queryFn: () => fetchLibrary(status, page, query, favorites, sort),
   })
+
+  useEffect(() => {
+    if (listQuery.data?.summary) {
+      setCollectionSummary(listQuery.data.summary)
+    }
+  }, [listQuery.data?.summary])
 
   const episodeMutation = useMutation({
     mutationFn: (input: { anilistId: number; episode: number; watched: boolean }) =>
@@ -274,17 +288,17 @@ export function LibraryPage() {
   return (
     <section className={UI.page}>
       <PageHeader title="My Collection" description="Track progress and jump back into any show." />
-      {listQuery.data?.summary ? (
+      {collectionSummary ? (
         <div
           className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
           aria-label="Collection overview"
         >
           {[
-            { label: 'Saved', value: listQuery.data.summary.total, tone: 'text-zinc-100' },
-            { label: 'Watching', value: listQuery.data.summary.watching, tone: 'text-indigo-200' },
-            { label: 'Completed', value: listQuery.data.summary.completed, tone: 'text-emerald-200' },
-            { label: 'Plan to watch', value: listQuery.data.summary.plan_to_watch, tone: 'text-sky-200' },
-            { label: 'Favorites', value: listQuery.data.summary.favorites, tone: 'text-rose-200' },
+            { label: 'Saved', value: collectionSummary.total, tone: 'text-zinc-100' },
+            { label: 'Watching', value: collectionSummary.watching, tone: 'text-indigo-200' },
+            { label: 'Completed', value: collectionSummary.completed, tone: 'text-emerald-200' },
+            { label: 'Plan to watch', value: collectionSummary.plan_to_watch, tone: 'text-sky-200' },
+            { label: 'Favorites', value: collectionSummary.favorites, tone: 'text-rose-200' },
           ].map((item) => (
             <div
               key={item.label}
@@ -331,7 +345,11 @@ export function LibraryPage() {
               aria-label={tab.label}
               title={tab.label}
               onClick={() => setTab(tab)}
-              className={cn(UI.pill, 'p-2.5', selected && UI.pillActive)}
+              className={cn(
+                UI.pill,
+                'inline-flex items-center gap-2 whitespace-nowrap p-2.5',
+                selected && UI.pillActive,
+              )}
             >
               <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
                 {tab.id === 'all' ? (
@@ -371,6 +389,9 @@ export function LibraryPage() {
                   />
                 )}
               </svg>
+              {selected ? (
+                <span className="library-tab-label text-sm">{tab.label}</span>
+              ) : null}
             </button>
           )
         })}
@@ -448,8 +469,8 @@ export function LibraryPage() {
         </EmptyState>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-base font-medium tracking-wide text-zinc-300" aria-live="polite">
-          {activeTabLabel}
+        <p className="text-sm text-zinc-400" aria-live="polite">
+          {activeTabDescription}
         </p>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Select
@@ -608,6 +629,8 @@ export function LibraryPage() {
               className={cn(
                 UI.cardInteractive,
                 'search-results-card group relative flex flex-col overflow-hidden',
+                entry.is_favorite &&
+                  'library-favorite-card border-rose-300/25 hover:border-rose-300/40',
                 displayMode === 'compact' ? 'p-3 sm:p-3' : 'p-4 sm:p-5',
                 displayMode === 'wide' && 'sm:grid sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-center sm:gap-x-5',
               )}
@@ -798,7 +821,7 @@ export function LibraryPage() {
                             {episodePending ? (
                               'Saving…'
                             ) : next == null ? (
-                              'All watched'
+                              'Watched'
                             ) : (
                               <>
                                 <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 shrink-0">
@@ -807,7 +830,7 @@ export function LibraryPage() {
                                     d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm-1.1 12.2-3-3 1.4-1.4 1.6 1.6 3.8-4 1.5 1.4z"
                                   />
                                 </svg>
-                                <span className="truncate">Ep. {next}</span>
+                                <span className="truncate">{next}</span>
                               </>
                             )}
                           </button>
