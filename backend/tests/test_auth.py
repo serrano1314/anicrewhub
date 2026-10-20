@@ -56,6 +56,81 @@ def test_me_without_token_returns_401(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_user_can_select_and_clear_preset_avatar(client: TestClient) -> None:
+    register = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    token = register.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    selected = client.patch("/api/v1/auth/me/avatar", json={"avatar_id": "1"}, headers=headers)
+    assert selected.status_code == 200
+    assert selected.json()["avatar_id"] == "1"
+
+    current = client.get("/api/v1/auth/me", headers=headers)
+    assert current.json()["avatar_id"] == "1"
+
+    cleared = client.patch("/api/v1/auth/me/avatar", json={"avatar_id": None}, headers=headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["avatar_id"] is None
+
+
+def test_user_cannot_select_unknown_avatar(client: TestClient) -> None:
+    register = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    token = register.json()["access_token"]
+    response = client.patch(
+        "/api/v1/auth/me/avatar",
+        json={"avatar_id": "0"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422
+
+
+def test_user_can_update_email_and_username(client: TestClient) -> None:
+    register = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    headers = {"Authorization": f"Bearer {register.json()['access_token']}"}
+
+    response = client.patch(
+        "/api/v1/auth/me/profile",
+        json={"email": "new@example.com", "username": "new_name"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "new@example.com"
+    assert response.json()["username"] == "new_name"
+    assert client.get("/api/v1/auth/me", headers=headers).json()["email"] == "new@example.com"
+
+
+def test_profile_update_rejects_taken_email_or_username(client: TestClient) -> None:
+    first = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": "other@example.com", "username": "other", "password": "password123"},
+    )
+    headers = {"Authorization": f"Bearer {first.json()['access_token']}"}
+
+    response = client.patch(
+        "/api/v1/auth/me/profile",
+        json={"email": "other@example.com", "username": "updated"},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    current = client.get("/api/v1/auth/me", headers=headers).json()
+    assert current["email"] == REGISTER_BODY["email"]
+    assert current["username"] == REGISTER_BODY["username"]
+
+
+def test_profile_update_validates_username_and_email(client: TestClient) -> None:
+    register = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    headers = {"Authorization": f"Bearer {register.json()['access_token']}"}
+    response = client.patch(
+        "/api/v1/auth/me/profile",
+        json={"email": "not-an-email", "username": "bad name"},
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
 def test_refresh_issues_new_access_token(client: TestClient) -> None:
     client.post("/api/v1/auth/register", json=REGISTER_BODY)
     response = client.post("/api/v1/auth/refresh")

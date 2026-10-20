@@ -144,6 +144,8 @@ def test_watch_links_use_saved_sites_before_google_and_skip_official(db: Session
             WatchLinkSource.saved,
         ),
         ("Later alpha", "https://later.example/one-piece", WatchLinkSource.saved),
+        ("Crunchyroll", "https://www.crunchyroll.com/one-piece", WatchLinkSource.official),
+        ("Netflix", "https://www.netflix.com/title/one-piece", WatchLinkSource.official),
         (
             "Google search",
             "https://www.google.com/search?q=watch+One+Piece+episode+812",
@@ -178,7 +180,7 @@ def test_watch_links_use_official_streams_when_nothing_is_saved(db: Session) -> 
     ]
 
 
-def test_saved_site_without_a_link_still_hides_official_streams(db: Session) -> None:
+def test_saved_site_without_a_link_still_returns_official_streams(db: Session) -> None:
     user = _user(db)
     anime = _save_anime(
         db,
@@ -191,7 +193,7 @@ def test_saved_site_without_a_link_still_hides_official_streams(db: Session) -> 
 
     links = list_watch_links(db, user, anime.anilist_id, 4)
 
-    assert [link.source for link in links] == [WatchLinkSource.search]
+    assert [link.source for link in links] == [WatchLinkSource.official, WatchLinkSource.search]
 
 
 def test_watch_links_ignore_another_users_sites(db: Session) -> None:

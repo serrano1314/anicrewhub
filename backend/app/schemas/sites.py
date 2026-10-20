@@ -115,6 +115,22 @@ class AnimeSiteCreateRequest(BaseModel):
         return require_http_url(value)
 
 
+class AnimeSiteUpdateRequest(BaseModel):
+    anime_url: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("anime_url", mode="before")
+    @classmethod
+    def blank_anime_url(cls, value: object) -> object:
+        return _blank_to_none(value)
+
+    @field_validator("anime_url")
+    @classmethod
+    def clean_anime_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return require_http_url(value)
+
+
 class AnimeSiteResponse(BaseModel):
     site_id: UUID
     name: str

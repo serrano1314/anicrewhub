@@ -10,6 +10,7 @@ from app.db.base import Base
 
 _text_array = JSON().with_variant(ARRAY(Text()), "postgresql")
 _json_object = JSON().with_variant(JSONB(), "postgresql")
+_json_data = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Anime(Base):
@@ -23,6 +24,7 @@ class Anime(Base):
     title_english: Mapped[str | None] = mapped_column(Text, nullable=True)
     title_synonyms: Mapped[list[str]] = mapped_column(_text_array, nullable=False, default=list)
     cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     format: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_episodes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     airing_status: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -31,6 +33,15 @@ class Anime(Base):
         _json_object,
         nullable=False,
         default=list,
+    )
+    details: Mapped[dict[str, object]] = mapped_column(
+        _json_data,
+        nullable=False,
+        default=dict,
+    )
+    details_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

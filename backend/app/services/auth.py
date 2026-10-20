@@ -36,6 +36,21 @@ def register_user(db: Session, email: str, username: str, password: str) -> User
     return user
 
 
+def update_user_profile(db: Session, user: User, email: str, username: str) -> User:
+    user.email = email.lower()
+    user.username = username
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email or username already taken",
+        ) from None
+    db.refresh(user)
+    return user
+
+
 def authenticate_user(db: Session, email: str, password: str) -> User:
     user = get_user_by_email(db, email)
     if user is None or not verify_password(password, user.password_hash):

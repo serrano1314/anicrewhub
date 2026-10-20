@@ -8,16 +8,20 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { fetchMe, login as loginRequest, logout as logoutRequest, refresh, register as registerRequest } from '../api/auth'
-import { setAccessToken } from '../api/client'
-import type { User } from '../types/auth'
+import { fetchMe, login as loginRequest, logout as logoutRequest, refresh, register as registerRequest, updateAvatar as updateAvatarRequest, updateProfile as updateProfileRequest } from '../api/auth'
+import { ApiError, setAccessToken } from '../api/client'
+import type { AvatarId, User } from '../types/auth'
 
 type AuthContextValue = {
   user: User | null
   isReady: boolean
   isAuthenticated: boolean
+  authError: boolean
+  retryAuth: () => void
   login: (email: string, password: string) => Promise<void>
   register: (email: string, username: string, password: string) => Promise<void>
+  updateAvatar: (avatarId: AvatarId | null) => Promise<void>
+  updateProfile: (email: string, username: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -27,48 +31,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [token, setToken] = useState<string | null>(null)
   const [bootstrapDone, setBootstrapDone] = useState(false)
+  const [bootstrapError, setBootstrapError] = useState(false)
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
 
   const applyToken = useCallback((next: string | null) => {
     setAccessToken(next)
     setToken(next)
   }, [])
+  const retryAuth = useCallback(() => {
+    setBootstrapAttempt((attempt) => attempt + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     async function bootstrap() {
-      try {
-        const data = await refresh()
-        if (!cancelled) {
-          applyToken(data.access_token)
+      setBootstrapDone(false)
+      setBootstrapError(false)
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const data = await refresh()
+          if (!cancelled) {
+            applyToken(data.access_token)
+          }
+          break
+        } catch (error) {
+          if (cancelled) {
+            return
+          }
+          if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+            applyToken(null)
+            break
+          }
+          if (attempt === 2) {
+            setBootstrapError(true)
+            break
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)))
         }
-      } catch {
-        if (!cancelled) {
-          applyToken(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setBootstrapDone(true)
-        }
+      }
+      if (!cancelled) {
+        setBootstrapDone(true)
       }
     }
     void bootstrap()
     return () => {
       cancelled = true
     }
-  }, [applyToken])
+  }, [applyToken, bootstrapAttempt])
 
   const meQuery = useQuery({
     queryKey: ['me'],
     queryFn: fetchMe,
     enabled: bootstrapDone && token !== null,
-    retry: false,
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && (error.status === 401 || error.status === 403)) &&
+      failureCount < 2,
   })
 
   useEffect(() => {
-    if (meQuery.isError) {
+    if (
+      meQuery.isError &&
+      meQuery.error instanceof ApiError &&
+      (meQuery.error.status === 401 || meQuery.error.status === 403)
+    ) {
       applyToken(null)
     }
-  }, [applyToken, meQuery.isError])
+  }, [applyToken, meQuery.error, meQuery.isError])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -97,20 +125,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [applyToken, queryClient])
 
+  const updateAvatar = useCallback(
+    async (avatarId: AvatarId | null) => {
+      const user = await updateAvatarRequest(avatarId)
+      queryClient.setQueryData(['me'], user)
+    },
+    [queryClient],
+  )
+
+  const updateProfile = useCallback(
+    async (email: string, username: string) => {
+      const user = await updateProfileRequest(email, username)
+      queryClient.setQueryData(['me'], user)
+    },
+    [queryClient],
+  )
+
   const meSettled = token === null || meQuery.isSuccess || meQuery.isError
   const isReady = bootstrapDone && meSettled
   const isAuthenticated = token !== null && meQuery.data !== undefined
+  const authError =
+    bootstrapError ||
+    (token !== null &&
+      meQuery.isError &&
+      !(meQuery.error instanceof ApiError && (meQuery.error.status === 401 || meQuery.error.status === 403)) &&
+      meQuery.data === undefined)
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user: meQuery.data ?? null,
       isReady,
       isAuthenticated,
+      authError,
+      retryAuth,
       login,
       register,
+      updateAvatar,
+      updateProfile,
       logout,
     }),
-    [isAuthenticated, isReady, login, logout, meQuery.data, register],
+    [authError, isAuthenticated, isReady, login, logout, meQuery.data, register, retryAuth, updateAvatar, updateProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

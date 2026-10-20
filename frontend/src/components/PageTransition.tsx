@@ -10,7 +10,7 @@ export function PageTransition() {
   }, [location.pathname])
 
   return (
-    <div key={location.pathname} className="page-transition-enter">
+    <div key={location.pathname} className="page-transition-enter w-full">
       <Outlet />
     </div>
   )

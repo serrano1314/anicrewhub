@@ -8,7 +8,7 @@ export function ResetPasswordPage() {
       title="Reset password"
       description="This reset link cannot be used right now."
       footer={
-        <Link to="/login" className="font-medium text-indigo-300 hover:text-indigo-200 hover:underline">
+        <Link to="/" className="font-medium text-indigo-300 hover:text-indigo-200 hover:underline">
           Back to sign in
         </Link>
       }

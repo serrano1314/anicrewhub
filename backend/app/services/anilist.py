@@ -5,7 +5,15 @@ from typing import Protocol
 import httpx
 
 from app.core.config import get_settings
-from app.schemas.anime import AnimeData, AnimeSearchResponse, ExternalLink
+from app.schemas.anime import (
+    AnimeData,
+    AnimeDetails,
+    AnimeDiscoveryKind,
+    AnimeSearchResponse,
+    AnimeTag,
+    ExternalLink,
+    RelatedAnime,
+)
 
 ANILIST_URL = "https://graphql.anilist.co"
 SEARCH_PER_PAGE = 20
@@ -23,8 +31,11 @@ _MEDIA_SELECTION = """
   coverImage {
     large
   }
+  description(asHtml: false)
   format
   episodes
+  averageScore
+  meanScore
   status
   nextAiringEpisode {
     episode
@@ -51,12 +62,59 @@ query ($search: String, $page: Int, $perPage: Int) {{
 }}
 """
 
+DISCOVERY_QUERY = f"""
+query ($page: Int, $perPage: Int, $sort: [MediaSort], $status: MediaStatus) {{
+  Page(page: $page, perPage: $perPage) {{
+    pageInfo {{
+      currentPage
+      hasNextPage
+    }}
+    media(type: ANIME, sort: $sort, status: $status) {{
+      {_MEDIA_SELECTION}
+    }}
+  }}
+}}
+"""
+
 MEDIA_QUERY = f"""
 query ($id: Int) {{
   Media(id: $id, type: ANIME) {{
     {_MEDIA_SELECTION}
+    bannerImage
+    genres
+    source
+    duration
+    countryOfOrigin
+    season
+    startDate {{ year month day }}
+    endDate {{ year month day }}
+    popularity
+    favourites
+    studios(isMain: true) {{ nodes {{ name }} }}
+    trailer {{ site id }}
+    tags {{ name rank isMediaSpoiler }}
+    nextAiringEpisode {{ episode airingAt }}
   }}
 }}
+"""
+
+RELATED_ANIME_QUERY = """
+query ($id: Int) {
+  Media(id: $id, type: ANIME) {
+    relations {
+      edges {
+        relationType(version: 2)
+        node {
+          id
+          type
+          title { romaji english }
+          format
+          coverImage { medium }
+        }
+      }
+    }
+  }
+}
 """
 
 _HEADERS = {
@@ -127,6 +185,124 @@ def _as_str(value: object) -> str | None:
     return None
 
 
+def _date_label(value: object) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    year = _as_int(value.get("year"))
+    month = _as_int(value.get("month"))
+    day = _as_int(value.get("day"))
+    if year is None:
+        return None
+    if month is None:
+        return str(year)
+    if day is None:
+        return f"{year}-{month:02d}"
+    return f"{year}-{month:02d}-{day:02d}"
+
+
+def _detail_names(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [name for item in value if isinstance(item, str) and (name := _as_str(item))]
+
+
+def _map_details(media: dict[str, object]) -> AnimeDetails:
+    studios: list[str] = []
+    raw_studios = media.get("studios")
+    nodes = raw_studios.get("nodes") if isinstance(raw_studios, dict) else None
+    if isinstance(nodes, list):
+        studios = [
+            name
+            for item in nodes
+            if isinstance(item, dict) and (name := _as_str(item.get("name")))
+        ]
+
+    tags: list[AnimeTag] = []
+    raw_tags = media.get("tags")
+    if isinstance(raw_tags, list):
+        for item in raw_tags:
+            if not isinstance(item, dict):
+                continue
+            name = _as_str(item.get("name"))
+            if name:
+                tags.append(
+                    AnimeTag(
+                        name=name,
+                        rank=_as_int(item.get("rank")),
+                        is_spoiler=bool(item.get("isMediaSpoiler")),
+                    )
+                )
+
+    trailer_url: str | None = None
+    trailer = media.get("trailer")
+    if isinstance(trailer, dict):
+        trailer_site = _as_str(trailer.get("site"))
+        trailer_id = _as_str(trailer.get("id"))
+        if trailer_site == "youtube" and trailer_id:
+            trailer_url = f"https://www.youtube.com/watch?v={trailer_id}"
+        elif trailer_site == "dailymotion" and trailer_id:
+            trailer_url = f"https://www.dailymotion.com/video/{trailer_id}"
+
+    next_airing = media.get("nextAiringEpisode")
+    next_episode = next_airing.get("episode") if isinstance(next_airing, dict) else None
+    next_airing_at = next_airing.get("airingAt") if isinstance(next_airing, dict) else None
+
+    return AnimeDetails(
+        genres=_detail_names(media.get("genres")),
+        studios=studios,
+        tags=tags,
+        source=_as_str(media.get("source")),
+        duration_minutes=_as_int(media.get("duration")),
+        country_of_origin=_as_str(media.get("countryOfOrigin")),
+        season=_as_str(media.get("season")),
+        start_date=_date_label(media.get("startDate")),
+        end_date=_date_label(media.get("endDate")),
+        popularity=_as_int(media.get("popularity")),
+        favorites=_as_int(media.get("favourites")),
+        banner_url=_as_str(media.get("bannerImage")),
+        trailer_url=trailer_url,
+        next_episode=_as_int(next_episode),
+        next_airing_at=_as_int(next_airing_at),
+    )
+
+
+def map_related_anime(media: object) -> list[RelatedAnime]:
+    if not isinstance(media, dict):
+        return []
+    related: list[RelatedAnime] = []
+    raw_relations = media.get("relations")
+    edges = raw_relations.get("edges") if isinstance(raw_relations, dict) else None
+    if isinstance(edges, list):
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+            node = edge.get("node")
+            if not isinstance(node, dict) or node.get("type") != "ANIME":
+                continue
+            related_id = _as_int(node.get("id"))
+            if related_id is None:
+                continue
+            title = node.get("title")
+            title_text = (
+                _as_str(title.get("english")) or _as_str(title.get("romaji"))
+                if isinstance(title, dict)
+                else None
+            )
+            if not title_text:
+                continue
+            cover = node.get("coverImage")
+            related.append(
+                RelatedAnime(
+                    anilist_id=related_id,
+                    title=title_text,
+                    relation=_as_str(edge.get("relationType")) or "RELATED",
+                    format=_as_str(node.get("format")),
+                    cover_url=_as_str(cover.get("medium")) if isinstance(cover, dict) else None,
+                )
+            )
+    return related
+
+
 def episode_count(media: dict[str, object], airing_status: str | None) -> int | None:
     """Prefer AniList's finished total. While a show is airing and that total is missing, use episodes aired so far."""
     total = _as_int(media.get("episodes"))
@@ -179,6 +355,9 @@ def map_media(media: object) -> AnimeData | None:
                 links.append(ExternalLink(site=site, url=url))
 
     airing_status = _as_str(media.get("status"))
+    average_score = _as_int(media.get("averageScore"))
+    if average_score is None:
+        average_score = _as_int(media.get("meanScore"))
 
     return AnimeData(
         anilist_id=anilist_id,
@@ -187,11 +366,14 @@ def map_media(media: object) -> AnimeData | None:
         title_english=english,
         title_synonyms=synonyms,
         cover_url=cover_url,
+        description=_as_str(media.get("description")),
         format=_as_str(media.get("format")),
         total_episodes=episode_count(media, airing_status),
+        average_score=average_score,
         airing_status=airing_status,
         season_year=_as_int(media.get("seasonYear")),
         external_links=links,
+        details=_map_details(media),
     )
 
 
@@ -273,6 +455,47 @@ class AniListClient:
         self._cache.set(key, result)
         return result
 
+    def discover(self, kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
+        key = (f"discover:{kind.value}", 1)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+
+        variables: dict[str, object] = {
+            "page": 1,
+            "perPage": 10,
+            "sort": ["START_DATE_DESC"] if kind == AnimeDiscoveryKind.latest else ["TRENDING_DESC"],
+        }
+        if kind == AnimeDiscoveryKind.latest:
+            variables["status"] = "RELEASING"
+
+        payload = self._post(DISCOVERY_QUERY, variables)
+        data = payload.get("data")
+        page_data = data.get("Page") if isinstance(data, dict) else None
+        if not isinstance(page_data, dict):
+            raise AniListUnavailable("AniList returned an unexpected discovery payload")
+
+        info = page_data.get("pageInfo")
+        current_page = 1
+        has_next_page = False
+        if isinstance(info, dict):
+            parsed_page = _as_int(info.get("currentPage"))
+            if parsed_page is not None:
+                current_page = parsed_page
+            has_next_page = bool(info.get("hasNextPage"))
+
+        media = page_data.get("media")
+        results = []
+        if isinstance(media, list):
+            for item in media:
+                mapped = map_media(item)
+                if mapped is not None:
+                    results.append(mapped)
+
+        result = AnimeSearchResponse(page=current_page, has_next_page=has_next_page, results=results)
+        self._cache.set(key, result)
+        return result
+
     def fetch_media(self, anilist_id: int) -> AnimeData:
         payload = self._post(MEDIA_QUERY, {"id": anilist_id})
         data = payload.get("data")
@@ -283,6 +506,14 @@ class AniListClient:
         if mapped is None:
             raise AniListUnavailable("AniList returned an unexpected anime payload")
         return mapped
+
+    def fetch_related(self, anilist_id: int) -> list[RelatedAnime]:
+        payload = self._post(RELATED_ANIME_QUERY, {"id": anilist_id})
+        data = payload.get("data")
+        media = data.get("Media") if isinstance(data, dict) else None
+        if media is None:
+            raise AniListNotFound("Anime not found")
+        return map_related_anime(media)
 
     def _post(self, query: str, variables: dict[str, object]) -> dict[str, object]:
         body: dict[str, object] = {"query": query, "variables": variables}

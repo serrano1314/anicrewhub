@@ -10,7 +10,7 @@ export type AnimeDetailLocationState = {
 export function backFromLibrary(params: URLSearchParams): BackTarget {
   const query = params.toString()
   return {
-    label: 'Back to My List',
+    label: 'My Collection',
     to: query ? `/?${query}` : '/',
   }
 }
@@ -18,7 +18,7 @@ export function backFromLibrary(params: URLSearchParams): BackTarget {
 export function backFromSearch(params: URLSearchParams): BackTarget {
   const query = params.toString()
   return {
-    label: 'Back to Search',
+    label: 'Anime Finder',
     to: query ? `/search?${query}` : '/search',
   }
 }

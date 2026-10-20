@@ -1,6 +1,19 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+
+AvatarId = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]*$", max_length=8)]
+
+
+class AvatarUpdateRequest(BaseModel):
+    avatar_id: AvatarId | None = Field(...)
+
+
+class ProfileUpdateRequest(BaseModel):
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
 
 
 class UserResponse(BaseModel):
@@ -9,3 +22,4 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     username: str
+    avatar_id: AvatarId | None = None

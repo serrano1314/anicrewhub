@@ -1,21 +1,54 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { AuthProvider } from './auth/AuthProvider'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { AppShell } from './components/AppShell'
 import { AuthPageLayout } from './components/AuthPageLayout'
 import { DialogProvider } from './components/DialogProvider'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AuthRecoveryScreen } from './components/AuthRecoveryScreen'
 import { AnimeDetailPage } from './pages/AnimeDetailPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
-import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SearchPage } from './pages/SearchPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { SettingsPage } from './pages/SettingsPage'
 
 const queryClient = new QueryClient()
+
+function HomePage() {
+  const { isReady, isAuthenticated, authError } = useAuth()
+
+  if (!isReady) {
+    return (
+      <AuthPageLayout>
+        <main className="flex min-h-screen w-full items-center justify-center" role="status" aria-busy="true">
+          <span className="sr-only">Loading Anime Tracker…</span>
+          <div className="size-10 animate-pulse rounded-2xl bg-indigo-400/20 ring-1 ring-indigo-300/20" />
+        </main>
+      </AuthPageLayout>
+    )
+  }
+
+  if (authError) {
+    return <AuthRecoveryScreen />
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AuthPageLayout>
+        <LoginPage />
+      </AuthPageLayout>
+    )
+  }
+
+  return (
+    <AppShell>
+      <LibraryPage />
+    </AppShell>
+  )
+}
 
 export default function App() {
   return (
@@ -24,15 +57,13 @@ export default function App() {
         <DialogProvider>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<HomePage />} />
               <Route element={<AuthPageLayout />}>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
               </Route>
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppShell />}>
-                  <Route path="/" element={<LibraryPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/anime/:anilistId" element={<AnimeDetailPage />} />
                   <Route path="/settings" element={<SettingsPage />} />

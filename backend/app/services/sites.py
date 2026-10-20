@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from app.models.anime import Anime
 from app.models.sites import UserAnimeSite, UserSite
 from app.models.user import User
-from app.schemas.sites import AnimeSiteCreateRequest, AnimeSiteResponse, SiteCreateRequest, SiteUpdateRequest
+from app.schemas.sites import (
+    AnimeSiteCreateRequest,
+    AnimeSiteResponse,
+    AnimeSiteUpdateRequest,
+    SiteCreateRequest,
+    SiteUpdateRequest,
+)
 
 
 def list_sites(db: Session, user: User) -> list[UserSite]:
@@ -94,6 +100,30 @@ def add_anime_site(db: Session, user: User, anilist_id: int, body: AnimeSiteCrea
             status_code=status.HTTP_409_CONFLICT,
             detail="Site is already saved for this anime",
         ) from None
+    db.refresh(link)
+    return _anime_site_response(link, site)
+
+
+def update_anime_site(
+    db: Session,
+    user: User,
+    anilist_id: int,
+    site_id: UUID,
+    body: AnimeSiteUpdateRequest,
+) -> AnimeSiteResponse:
+    anime = _cached_anime(db, anilist_id)
+    site = _owned_site(db, user.id, site_id)
+    link = db.scalar(
+        select(UserAnimeSite).where(
+            UserAnimeSite.user_id == user.id,
+            UserAnimeSite.anime_id == anime.id,
+            UserAnimeSite.site_id == site.id,
+        )
+    )
+    if link is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site is not saved for this anime")
+    link.anime_url = body.anime_url
+    db.commit()
     db.refresh(link)
     return _anime_site_response(link, site)
 

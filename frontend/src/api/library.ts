@@ -61,6 +61,12 @@ export function fetchWatchedEpisodes(anilistId: number): Promise<WatchedEpisodes
   )
 }
 
+export function resetEpisodeProgress(anilistId: number): Promise<ProgressState> {
+  return apiFetch(`/api/v1/library/${anilistId}/episodes`, { method: 'DELETE' }).then((response) =>
+    readJson<ProgressState>(response),
+  )
+}
+
 export function setEpisodeWatched(
   anilistId: number,
   episode: number,

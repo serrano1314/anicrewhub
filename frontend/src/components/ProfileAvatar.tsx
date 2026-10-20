@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { cn } from '../lib/ui'
+import type { AvatarId } from '../types/auth'
 
 const SIZE_CLASS = {
   sm: 'h-7 w-7 text-[11px]',
@@ -8,8 +10,7 @@ const SIZE_CLASS = {
 
 type ProfileAvatarProps = {
   username?: string
-  /** Reserved for profile picture upload (not wired yet). */
-  avatarUrl?: string | null
+  avatarId?: AvatarId | null
   size?: keyof typeof SIZE_CLASS
   className?: string
 }
@@ -24,19 +25,15 @@ export function userInitials(username: string | undefined): string {
 
 export function ProfileAvatar({
   username,
-  avatarUrl = null,
+  avatarId = null,
   size = 'md',
   className,
 }: ProfileAvatarProps) {
   const initials = userInitials(username)
 
-  if (avatarUrl) {
+  if (avatarId) {
     return (
-      <img
-        src={avatarUrl}
-        alt=""
-        className={cn('shrink-0 rounded-full object-cover ring-1 ring-white/10', SIZE_CLASS[size], className)}
-      />
+      <PresetAvatarArt key={avatarId} avatarId={avatarId} className={cn(SIZE_CLASS[size], className)} />
     )
   }
 
@@ -51,5 +48,32 @@ export function ProfileAvatar({
     >
       {initials}
     </span>
+  )
+}
+
+export function PresetAvatarArt({ avatarId, className }: { avatarId: AvatarId; className?: string }) {
+  const [imageFailed, setImageFailed] = useState(false)
+
+  if (imageFailed) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400/30 to-violet-950 text-xs font-semibold text-white ring-1 ring-white/10',
+          className,
+        )}
+      >
+        {avatarId}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      src={`/avatars/${avatarId}.png`}
+      alt=""
+      onError={() => setImageFailed(true)}
+      className={cn('shrink-0 rounded-full object-cover ring-1 ring-white/10', className)}
+    />
   )
 }

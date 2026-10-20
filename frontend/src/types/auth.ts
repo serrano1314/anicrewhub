@@ -1,7 +1,10 @@
+export type AvatarId = string
+
 export type User = {
   id: string
   email: string
   username: string
+  avatar_id: AvatarId | null
 }
 
 export type TokenResponse = {
