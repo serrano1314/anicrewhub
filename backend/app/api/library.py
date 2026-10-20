@@ -26,7 +26,13 @@ from app.schemas.library_backup import (
 from app.services.library_backup import export_user_library, import_user_library
 from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited
 from app.services.library import add_to_library, list_library, remove_from_library, update_library
-from app.services.progress import MAX_EPISODE_NUMBER, list_watched_episodes, mark_up_to, set_episode_watched
+from app.services.progress import (
+    MAX_EPISODE_NUMBER,
+    list_watched_episodes,
+    mark_up_to,
+    reset_episode_progress,
+    set_episode_watched,
+)
 
 router = APIRouter(prefix="/library", tags=["library"])
 
@@ -108,6 +114,15 @@ def read_episodes(
     current_user: User = Depends(get_current_user),
 ) -> WatchedEpisodesResponse:
     return list_watched_episodes(db, current_user, anilist_id)
+
+
+@router.delete("/{anilist_id}/episodes", response_model=ProgressStateResponse)
+def delete_episode_progress(
+    anilist_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ProgressStateResponse:
+    return reset_episode_progress(db, current_user, anilist_id)
 
 
 @router.put("/{anilist_id}/episodes/{episode_number}", response_model=ProgressStateResponse)

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchWatchLinks } from '../api/anime'
 import { ApiError } from '../api/client'
 import type { WatchLinkSource } from '../types/anime'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
+import { getPreferredWatchLinkGroup } from '../lib/watchLinkPreferences'
 
 const SOURCE_LABEL: Record<WatchLinkSource, string> = {
   saved: 'Your site',
@@ -16,10 +18,25 @@ type WatchLinksDialogProps = {
   title: string
   episode: number
   onClose: () => void
+  groupedSources?: boolean
+  watched?: boolean
+  pending?: boolean
+  onToggleWatched?: () => void
 }
 
-export function WatchLinksDialog({ anilistId, title, episode, onClose }: WatchLinksDialogProps) {
+export function WatchLinksDialog({
+  anilistId,
+  title,
+  episode,
+  onClose,
+  groupedSources = false,
+  watched,
+  pending = false,
+  onToggleWatched,
+}: WatchLinksDialogProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const preferredGroup = getPreferredWatchLinkGroup()
+  useBodyScrollLock(true)
   const linksQuery = useQuery({
     queryKey: ['watch-links', anilistId, episode],
     queryFn: () => fetchWatchLinks(anilistId, episode),
@@ -38,6 +55,50 @@ export function WatchLinksDialog({ anilistId, title, episode, onClose }: WatchLi
 
   const errorMessage =
     linksQuery.error instanceof ApiError ? linksQuery.error.message : 'Could not load watch links'
+  const savedLinks = linksQuery.data?.filter((link) => link.source === 'saved') ?? []
+  const officialLinks = linksQuery.data?.filter((link) => link.source === 'official') ?? []
+  const searchLinks = linksQuery.data?.filter((link) => link.source === 'search') ?? []
+
+  function renderLinks(links: typeof linksQuery.data) {
+    if (!links?.length) {
+      return (
+        <p className="py-3 text-sm text-zinc-400">
+          No links found in this category for this episode.
+        </p>
+      )
+    }
+    return (
+      <ul className="space-y-2">
+        {links.map((link, index) => (
+          <li key={`${link.source}-${link.url}-${index}`}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-950/40 px-4 py-3 transition hover:border-indigo-400/30 hover:bg-indigo-500/10"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-indigo-200">
+                {link.label}
+              </span>
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-zinc-500">
+                {SOURCE_LABEL[link.source]}
+              </span>
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 shrink-0 text-zinc-500">
+                <path
+                  d="M11 3h6v6m-1-5-8 8M15 11v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   return createPortal(
     <div
@@ -104,38 +165,77 @@ export function WatchLinksDialog({ anilistId, title, episode, onClose }: WatchLi
               No watch links found for this episode yet.
             </p>
           ) : null}
-          {linksQuery.data && linksQuery.data.length > 0 ? (
-            <ul className="space-y-2">
-              {linksQuery.data.map((link, index) => (
-                <li key={`${link.source}-${link.url}-${index}`}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-950/40 px-4 py-3 transition hover:border-indigo-400/30 hover:bg-indigo-500/10"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-indigo-200">
-                      {link.label}
-                    </span>
-                    <span className="shrink-0 text-[10px] uppercase tracking-wider text-zinc-500">
-                      {SOURCE_LABEL[link.source]}
-                    </span>
-                    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 shrink-0 text-zinc-500">
-                      <path
-                        d="M11 3h6v6m-1-5-8 8M15 11v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+          {groupedSources && linksQuery.data?.length ? (
+            <div className="space-y-3">
+              {savedLinks.length > 0 ? (
+                <>
+                  <details open={preferredGroup === 'saved'} className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                      <span>Your added sites</span>
+                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </summary>
+                    <div className="border-t border-white/10 p-3">{renderLinks(savedLinks)}</div>
+                  </details>
+                  <details open={preferredGroup === 'official'} className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                      <span>Official links</span>
+                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </summary>
+                    <div className="space-y-3 border-t border-white/10 p-3">
+                      {officialLinks.length ? renderLinks(officialLinks) : (
+                        <p className="py-2 text-sm text-zinc-400">No official streaming links available.</p>
+                      )}
+                      {searchLinks.length ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Search</p>
+                          {renderLinks(searchLinks)}
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
+                </>
+              ) : (
+                <details open className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                    <span>Official links</span>
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                      <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </a>
-                </li>
-              ))}
-            </ul>
+                  </summary>
+                  <div className="space-y-3 border-t border-white/10 p-3">
+                    {officialLinks.length ? renderLinks(officialLinks) : (
+                      <p className="py-2 text-sm text-zinc-400">No official streaming links available.</p>
+                    )}
+                    {searchLinks.length ? (
+                      <div>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Search</p>
+                        {renderLinks(searchLinks)}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : linksQuery.data && linksQuery.data.length > 0 ? (
+            renderLinks(linksQuery.data)
           ) : null}
         </div>
+        {onToggleWatched ? (
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onToggleWatched}
+              className="w-full rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+            >
+              {pending ? 'Saving…' : watched ? 'Mark as unwatched' : 'Mark as watched'}
+            </button>
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body,

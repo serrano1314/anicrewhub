@@ -1,3 +1,5 @@
+import { UI, cn } from '../lib/ui'
+
 const EXTENSION_ZIP_PATH = '/anime-tracker-extension.zip'
 
 function extensionApiBase(): string {
@@ -23,8 +25,11 @@ export function ExtensionDownloadSection({ compact = false }: { compact?: boolea
       <a
         href={EXTENSION_ZIP_PATH}
         download="anime-tracker-extension.zip"
-        className="inline-block rounded-md bg-indigo-500 px-4 py-2 font-medium hover:bg-indigo-400"
+        className={cn(UI.btn, UI.btnPrimary, 'w-fit rounded-full px-5')}
       >
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 2.5v10m-4-4 4 4 4-4M3.5 13.5v3h13v-3" />
+        </svg>
         Download extension
       </a>
       <ol className="list-decimal space-y-2 pl-5 text-sm text-zinc-300">

@@ -17,6 +17,11 @@ from app.schemas.library import (
 )
 from app.services.anilist import AniListError
 from app.services.anime import AnimeSource, get_anime, is_still_airing
+from app.services.episode_progress import (
+    MAX_EPISODE_NUMBER,
+    episode_progress_row,
+    insert_episode_progress,
+)
 
 LIBRARY_PAGE_SIZE = 24
 
@@ -161,7 +166,23 @@ def add_to_library(db: Session, user: User, anilist_id: int, list_status: Librar
         last_episode_watched=0,
     )
     db.add(entry)
+    watched_count = 0
     try:
+        if (
+            list_status == LibraryStatus.completed
+            and anime.total_episodes is not None
+            and 1 <= anime.total_episodes <= MAX_EPISODE_NUMBER
+        ):
+            db.flush()
+            insert_episode_progress(
+                db,
+                [
+                    episode_progress_row(user.id, anime.id, episode, source_site=None)
+                    for episode in range(1, anime.total_episodes + 1)
+                ],
+            )
+            entry.last_episode_watched = anime.total_episodes
+            watched_count = anime.total_episodes
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -170,7 +191,7 @@ def add_to_library(db: Session, user: User, anilist_id: int, list_status: Librar
             detail="Anime is already in your library",
         ) from None
     db.refresh(entry)
-    return entry_response(entry, anime, 0)
+    return entry_response(entry, anime, watched_count)
 
 
 def update_library(

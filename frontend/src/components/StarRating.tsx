@@ -6,6 +6,7 @@ type StarRatingProps = {
   onChange?: (value: number | null) => void
   disabled?: boolean
   readOnly?: boolean
+  showValue?: boolean
 }
 
 export function StarRating({
@@ -13,6 +14,7 @@ export function StarRating({
   onChange,
   disabled = false,
   readOnly = false,
+  showValue = true,
 }: StarRatingProps) {
   const [hoverValue, setHoverValue] = useState<number | null>(null)
   const activeValue = hoverValue ?? value ?? 0
@@ -31,7 +33,7 @@ export function StarRating({
       className="flex items-center gap-0.5"
       onMouseLeave={() => setHoverValue(null)}
     >
-      {!readOnly ? (
+      {!readOnly && showValue ? (
         <button
           type="button"
           aria-label={`Clear rating; ${ratingLabel} out of 5 stars`}

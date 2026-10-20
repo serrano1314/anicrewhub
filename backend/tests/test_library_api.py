@@ -130,6 +130,72 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     assert db.scalar(select(func.count()).select_from(EpisodeProgress)) == 0
 
 
+def test_adding_as_completed_marks_all_known_episodes_watched(
+    client: TestClient,
+    db: Session,
+) -> None:
+    _cache(db, total=3)
+    headers = _auth(client)
+
+    response = client.post(
+        "/api/v1/library",
+        json={"anilist_id": 21, "status": "completed"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "completed"
+    assert response.json()["watched_count"] == 3
+    assert response.json()["last_episode_watched"] == 3
+    episodes = client.get("/api/v1/library/21/episodes", headers=headers)
+    assert episodes.json()["episodes"] == [1, 2, 3]
+
+
+def test_adding_unknown_episode_count_as_completed_keeps_progress_empty(
+    client: TestClient,
+    db: Session,
+) -> None:
+    _cache(db, total=None)
+    headers = _auth(client)
+
+    response = client.post(
+        "/api/v1/library",
+        json={"anilist_id": 21, "status": "completed"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "completed"
+    assert response.json()["watched_count"] == 0
+    episodes = client.get("/api/v1/library/21/episodes", headers=headers)
+    assert episodes.json()["episodes"] == []
+
+
+def test_reset_episode_progress_clears_watched_episodes_and_last_episode(
+    client: TestClient,
+    db: Session,
+) -> None:
+    _cache(db, total=5)
+    headers = _auth(client)
+    client.post(
+        "/api/v1/library",
+        json={"anilist_id": 21, "status": "watching"},
+        headers=headers,
+    )
+    client.post("/api/v1/library/21/episodes/mark-up-to/3", headers=headers)
+
+    response = client.delete("/api/v1/library/21/episodes", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["watched_count"] == 0
+    assert response.json()["last_episode_watched"] == 0
+    assert response.json()["status"] == "watching"
+    assert client.get("/api/v1/library/21/episodes", headers=headers).json()["episodes"] == []
+    entry = db.scalar(select(UserAnime))
+    assert entry is not None
+    assert entry.last_episode_watched == 0
+
+
 def test_library_is_private_per_user(client: TestClient, db: Session) -> None:
     _cache(db)
     owner = _auth(client)

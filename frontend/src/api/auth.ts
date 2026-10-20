@@ -1,5 +1,6 @@
 import type {
   ChangePasswordRequest,
+  AvatarId,
   ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
@@ -47,6 +48,28 @@ export async function logout(): Promise<void> {
 
 export async function fetchMe(): Promise<User> {
   const response = await apiFetch('/api/v1/auth/me', { method: 'GET' })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as User
+}
+
+export async function updateAvatar(avatarId: AvatarId | null): Promise<User> {
+  const response = await apiFetch('/api/v1/auth/me/avatar', {
+    method: 'PATCH',
+    body: JSON.stringify({ avatar_id: avatarId }),
+  })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+  return (await response.json()) as User
+}
+
+export async function updateProfile(email: string, username: string): Promise<User> {
+  const response = await apiFetch('/api/v1/auth/me/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ email, username }),
+  })
   if (!response.ok) {
     throw await readApiError(response)
   }

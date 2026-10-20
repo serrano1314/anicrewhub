@@ -16,12 +16,12 @@ export function Pager({ page, hasNext, totalCount, totalPages, onPage }: PagerPr
   return (
     <nav aria-label="Pagination" className="flex items-center justify-between gap-3 pt-3">
       <div className="flex flex-wrap items-center gap-2 text-sm tabular-nums">
-        {totalCount != null ? (
+        {/* {totalCount != null ? (
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-zinc-900/60 px-3 text-zinc-300">
             <span className="text-zinc-500">Saved</span>
             <span className="font-semibold text-zinc-100">{totalCount}</span>
           </span>
-        ) : null}
+        ) : null} */}
         <span
           aria-current="page"
           aria-label={

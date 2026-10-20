@@ -6,6 +6,7 @@ import {
   type DialogTone,
   type NoticeOptions,
 } from './dialogContext'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 type DialogKind = 'confirm' | 'error' | 'success'
 
@@ -25,6 +26,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   const [dialog, setDialog] = useState<ActiveDialog | null>(null)
+  useBodyScrollLock(dialog !== null)
 
   const finish = useCallback((confirmed: boolean) => {
     resolver.current?.(confirmed)
@@ -91,7 +93,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       {children}
       {dialog ? (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-[2px]"
           onMouseDown={() => finish(dialog.kind !== 'confirm')}
         >
           <div

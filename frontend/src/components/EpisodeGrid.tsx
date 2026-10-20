@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   EPISODE_GRID_GAP,
   EPISODE_GRID_PADDING,
@@ -12,6 +12,7 @@ import {
   rowCount,
   scrollOffsetFor,
   visibleRowRange,
+  parseEpisodeInput,
 } from '../lib/episodes'
 import { UI, cn } from '../lib/ui'
 
@@ -19,6 +20,9 @@ type EpisodeGridProps = {
   totalEpisodes: number | null
   watchedEpisodes: number[]
   focusEpisode: number | null
+  onJumpToEpisode: (episode: number) => void
+  onMarkUpToEpisode: (episode: number) => void
+  markingPending: boolean
   onSelect: (episode: number) => void
 }
 
@@ -26,9 +30,15 @@ export function EpisodeGrid({
   totalEpisodes,
   watchedEpisodes,
   focusEpisode,
+  onJumpToEpisode,
+  onMarkUpToEpisode,
+  markingPending,
   onSelect,
 }: EpisodeGridProps) {
   const highestWatched = watchedEpisodes.reduce((max, episode) => Math.max(max, episode), 0)
+  const [jumpInput, setJumpInput] = useState('')
+  const [markInput, setMarkInput] = useState('')
+  const [episodeInputError, setEpisodeInputError] = useState<string | null>(null)
   const [openedThrough, setOpenedThrough] = useState(RANGE_SIZE)
   const [selectedStart, setSelectedStart] = useState<number | null>(null)
   const [seenFocus, setSeenFocus] = useState(focusEpisode)
@@ -101,8 +111,78 @@ export function EpisodeGrid({
   const buttonHeight = EPISODE_ROW_HEIGHT - EPISODE_GRID_GAP
   const contentHeight = EPISODE_GRID_PADDING * 2 + rows * EPISODE_ROW_HEIGHT
 
+  function submitEpisodeInput(
+    event: FormEvent<HTMLFormElement>,
+    input: string,
+    action: (episode: number) => void,
+  ) {
+    event.preventDefault()
+    const episode = parseEpisodeInput(input, totalEpisodes)
+    if (episode == null) {
+      const maxEpisode = totalKnown ? totalEpisodes : 5000
+      setEpisodeInputError(`Enter an episode from 1 to ${maxEpisode}.`)
+      return
+    }
+    setEpisodeInputError(null)
+    action(episode)
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-semibold text-zinc-100">Episodes</h2>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <form
+            aria-label="Jump to episode"
+            onSubmit={(event) => submitEpisodeInput(event, jumpInput, onJumpToEpisode)}
+            className="flex min-w-0 items-center overflow-hidden rounded-full border border-white/10 bg-zinc-950/40 focus-within:border-indigo-300/40 focus-within:ring-2 focus-within:ring-indigo-300/30"
+          >
+            <label className="sr-only" htmlFor="jump-to-episode">Jump to episode</label>
+            <input
+              id="jump-to-episode"
+              inputMode="numeric"
+              value={jumpInput}
+              onChange={(event) => {
+                setJumpInput(event.target.value)
+                setEpisodeInputError(null)
+              }}
+              placeholder="Jump to #"
+              className="h-9 w-24 min-w-0 border-0 bg-transparent px-3 text-xs text-zinc-100 outline-none placeholder:text-zinc-500 focus:ring-0"
+            />
+            <button type="submit" className="h-9 shrink-0 border-l border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-zinc-200 transition hover:bg-white/10 hover:text-white focus-visible:outline-none">
+              Go
+            </button>
+          </form>
+          <form
+            aria-label="Mark progress"
+            onSubmit={(event) =>
+              submitEpisodeInput(event, markInput, onMarkUpToEpisode)
+            }
+            className="flex min-w-0 items-center overflow-hidden rounded-full border border-indigo-300/20 bg-indigo-400/[0.04] focus-within:border-indigo-300/40 focus-within:ring-2 focus-within:ring-indigo-300/30"
+          >
+            <label className="sr-only" htmlFor="mark-progress-episode">Mark progress through episode</label>
+            <input
+              id="mark-progress-episode"
+              inputMode="numeric"
+              value={markInput}
+              onChange={(event) => {
+                setMarkInput(event.target.value)
+                setEpisodeInputError(null)
+              }}
+              placeholder="Mark to #"
+              className="h-9 w-24 min-w-0 border-0 bg-transparent px-3 text-xs text-zinc-100 outline-none placeholder:text-zinc-500 focus:ring-0"
+            />
+            <button
+              type="submit"
+              disabled={markingPending}
+              className="h-9 shrink-0 border-l border-indigo-300/15 bg-indigo-400/[0.08] px-3 text-xs font-medium text-indigo-100 transition hover:bg-indigo-400/[0.16] disabled:opacity-50"
+            >
+              {markingPending ? '…' : 'Mark'}
+            </button>
+          </form>
+        </div>
+      </div>
+      {episodeInputError ? <p className="text-sm text-red-400" role="alert">{episodeInputError}</p> : null}
       <div className="ui-tablist" role="tablist" aria-label="Episode ranges">
         {ranges.map((range) => {
           const selected = range.start === active.start

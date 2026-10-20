@@ -46,6 +46,17 @@ export function addAnimeSite(
   }).then((response) => readJson<AnimeSite>(response))
 }
 
+export function updateAnimeSite(
+  anilistId: number,
+  siteId: string,
+  animeUrl: string,
+): Promise<AnimeSite> {
+  return apiFetch(`/api/v1/library/${anilistId}/sites/${siteId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ anime_url: animeUrl.trim() || null }),
+  }).then((response) => readJson<AnimeSite>(response))
+}
+
 export async function removeAnimeSite(anilistId: number, siteId: string): Promise<void> {
   const response = await apiFetch(`/api/v1/library/${anilistId}/sites/${siteId}`, {
     method: 'DELETE',

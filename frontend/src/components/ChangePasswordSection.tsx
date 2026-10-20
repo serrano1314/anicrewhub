@@ -92,7 +92,15 @@ export function ChangePasswordSection({ compact = false }: { compact?: boolean }
         {apiError ? (
           <p className="text-sm text-red-300" role="alert">{apiError}</p>
         ) : null}
-        <button type="submit" disabled={mutation.isPending} className={cn(UI.btn, UI.btnPrimary)}>
+        <button type="submit" disabled={mutation.isPending} className={cn(UI.btn, UI.btnPrimary, 'rounded-full')}>
+          {mutation.isPending ? (
+            <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : (
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="9" width="12" height="9" rx="2" />
+              <path d="M7 9V6a3 3 0 1 1 6 0v3m-3 4v2" />
+            </svg>
+          )}
           {mutation.isPending ? 'Saving…' : 'Change password'}
         </button>
       </form>

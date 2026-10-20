@@ -13,7 +13,7 @@ export function ContactSupportFooterButton({ compact = false }: { compact?: bool
       <div className="flex flex-col items-center gap-2 text-center">
         <button
           type="button"
-          className={cn(UI.btn, UI.btnSecondary, 'min-w-[11rem] px-6')}
+          className={cn(UI.btn, UI.btnSecondary, 'min-w-[1rem] px-4 rounded-full')}
           title={CONTACT_SUPPORT_UNAVAILABLE_MESSAGE}
           onClick={() => {
             void dialog.success({

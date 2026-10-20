@@ -9,6 +9,7 @@ from app.api.auth import router as auth_router
 from app.api.contact import router as contact_router
 from app.api.extension import router as extension_router
 from app.api.library import router as library_router
+from app.api.release_notes import router as release_notes_router
 from app.api.sites import router as sites_router
 from app.core.config import get_settings
 from app.core.keep_alive import keep_alive_lifespan
@@ -54,6 +55,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(anime_router, prefix="/api/v1")
 app.include_router(library_router, prefix="/api/v1")
 app.include_router(sites_router, prefix="/api/v1")
+app.include_router(release_notes_router, prefix="/api/v1")
 app.include_router(extension_router, prefix="/api/v1")
 app.include_router(contact_router, prefix="/api/v1")
 
