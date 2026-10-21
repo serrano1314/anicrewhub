@@ -200,8 +200,15 @@ export function Select({
                     setActiveIndex(enabledIndex)
                   }
                 }}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => selectOption(option)}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  selectOption(option)
+                }}
               >
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
                 {selected ? (

@@ -109,17 +109,10 @@ export function importLibraryBackup(document: unknown): Promise<LibraryImportRes
   }).then((response) => readJson<LibraryImportResponse>(response))
 }
 
-export async function findLibraryEntry(anilistId: number): Promise<LibraryEntry | null> {
-  let page = 1
-  for (;;) {
-    const data = await fetchLibrary(undefined, page)
-    const found = data.results.find((entry) => entry.anilist_id === anilistId)
-    if (found) {
-      return found
-    }
-    if (!data.has_next_page) {
-      return null
-    }
-    page += 1
+export async function fetchLibraryEntry(anilistId: number): Promise<LibraryEntry | null> {
+  const response = await apiFetch(`/api/v1/library/${anilistId}`)
+  if (response.status === 404) {
+    return null
   }
+  return readJson<LibraryEntry>(response)
 }

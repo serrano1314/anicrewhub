@@ -253,15 +253,16 @@ export function AnimeSitesSection({ anilistId }: AnimeSitesSectionProps) {
           ) : null}
           {available.length > 0 ? (
             <form onSubmit={onAdd} className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1.5">
+              <div className="block space-y-1.5">
                 <span className={UI.fieldLabel}>Site</span>
                 <Select
                   value={siteId}
                   onChange={setSiteId}
                   placeholder="Choose a site"
+                  aria-label="Site"
                   options={available.map((site) => ({ value: site.id, label: site.name }))}
                 />
-              </label>
+              </div>
               <label className="block space-y-1.5">
                 <span className={UI.fieldLabel}>Page URL for this anime</span>
                 <input

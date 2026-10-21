@@ -542,7 +542,7 @@ export function LibraryPage() {
               if (event.key === 'Escape') setLayoutMenuOpen(false)
             }}
             className={cn(
-              'group relative hidden h-10 items-center overflow-hidden rounded-full border bg-zinc-900/60 text-zinc-300 transition-[width,background-color,border-color] duration-200 hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-within:border-indigo-300/40 focus-within:bg-indigo-500/10 lg:flex',
+              'group relative hidden h-10 items-center justify-center overflow-hidden rounded-full border bg-zinc-900/60 text-zinc-300 transition-[width,background-color,border-color] duration-200 hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-within:border-indigo-300/40 focus-within:bg-indigo-500/10 lg:flex',
               layoutMenuOpen ? 'w-[104px] border-indigo-300/40' : 'w-10 border-white/10 hover:w-[104px] focus-within:w-[104px]',
             )}
           >
