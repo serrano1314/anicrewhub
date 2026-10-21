@@ -343,14 +343,14 @@ export function SearchPage() {
 
   return (
     <section className={UI.page}>
-      <PageHeader title="Anime Finder" description="Find anime for your collection." />
+      <PageHeader eyebrow="Search" title="Anime Finder" description="Find anime for your collection." />
       <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
         <label className="relative flex min-w-0 flex-1 items-center">
           <span className="sr-only">Search anime</span>
           <svg
             viewBox="0 0 20 20"
             aria-hidden="true"
-            className="pointer-events-none absolute left-4 size-5 text-zinc-400"
+            className="pointer-events-none absolute left-4 z-10 size-5 text-zinc-400"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.7"
@@ -363,7 +363,7 @@ export function SearchPage() {
             onChange={(event) => setInput(event.target.value)}
             placeholder="Search anime titles…"
             aria-label="Search anime titles"
-            className={cn(UI.input, 'h-12 rounded-full pl-12 pr-12')}
+            className={cn(UI.input, 'relative z-0 h-12 rounded-full pl-12 pr-12')}
           />
           {input ? (
             <button
@@ -374,7 +374,7 @@ export function SearchPage() {
                 setInput('')
                 setParams(new URLSearchParams())
               }}
-              className="absolute right-2 inline-flex size-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"
+              className="absolute right-2 z-10 inline-flex size-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"
             >
               <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="m5 5 10 10M15 5 5 15" />

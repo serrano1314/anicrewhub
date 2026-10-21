@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { NotificationBell } from './NotificationBell'
 import { PageTransition } from './PageTransition'
 import { ProfileAvatar } from './ProfileAvatar'
-import { ProfileModal } from './ProfileModal'
 import { useAuth } from '../auth/AuthProvider'
 import { useDialog } from './dialogContext'
 import { APP_VERSION } from '../lib/config'
@@ -20,13 +20,11 @@ type NavigationItemsProps = {
   compact?: boolean
   username: string
   avatarId: AvatarId | null
-  profileOpen: boolean
-  onOpenProfile: () => void
 }
 
 function navClass(active: boolean, compact = false): string {
   const base = compact
-    ? 'relative z-10 flex flex-1 items-center justify-center rounded-full px-3 py-2 transition-colors duration-200 ease-out'
+    ? 'relative z-10 flex h-full w-full min-w-0 items-center justify-center rounded-full px-0 py-2 transition-colors duration-200 ease-out'
     : 'relative z-10 inline-flex items-center justify-center rounded-full px-3.5 py-2 transition-colors duration-200 ease-out'
   if (active) {
     return `${base} text-indigo-100`
@@ -42,6 +40,17 @@ const NAV_ITEMS: NavItem[] = [
     icon: ({ active }) => (
       <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">
         <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    to: '/users',
+    label: 'Search users',
+    icon: ({ active }) => (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">
+        <path d="M16 21v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 19.5V21" strokeLinecap="round" />
+        <circle cx="10" cy="8" r="3" />
+        <path d="M20 8v6M17 11h6" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -76,12 +85,10 @@ function NavigationItems({
   compact = false,
   username,
   avatarId,
-  profileOpen,
-  onOpenProfile,
 }: NavigationItemsProps) {
   const { pathname } = useLocation()
   const routeIndex = NAV_ITEMS.findIndex((item) => (item.end ? pathname === item.to : pathname.startsWith(item.to)))
-  const activeIndex = profileOpen ? NAV_ITEMS.length : routeIndex
+  const activeIndex = pathname.startsWith('/profile') ? NAV_ITEMS.length : routeIndex
   const hasActiveNav = activeIndex >= 0
 
   return (
@@ -89,7 +96,7 @@ function NavigationItems({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/4)] rounded-full bg-indigo-500/20 ring-1 ring-indigo-400/30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'pointer-events-none absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/5)] rounded-full bg-indigo-500/20 ring-1 ring-indigo-400/30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           hasActiveNav ? 'opacity-100' : 'opacity-0',
         )}
         style={{ transform: `translateX(${activeIndex * 100}%)` }}
@@ -111,44 +118,36 @@ function NavigationItems({
           )}
         </NavLink>
       ))}
-      <button
-        type="button"
-        onClick={onOpenProfile}
-        aria-haspopup="dialog"
-        aria-expanded={profileOpen}
+      <NavLink
+        to="/profile"
         aria-label="Profile"
         title="Profile"
-        className={cn(navClass(profileOpen, compact), 'gap-1')}
+        className={({ isActive }) => navClass(isActive, compact)}
       >
-        <span className={cn(
-          'flex items-center justify-center rounded-full transition',
-          compact ? 'size-8' : 'size-7',
-          profileOpen && 'ring-2 ring-indigo-300/70 ring-offset-2 ring-offset-zinc-900',
-        )}>
-          <ProfileAvatar username={username} avatarId={avatarId} size="sm" className="size-full" />
-        </span>
-        {compact ? <span className="sr-only">Profile</span> : null}
-      </button>
+        {({ isActive }) => (
+          <>
+            <span className={cn(
+              'flex items-center justify-center rounded-full transition',
+              compact ? 'size-10' : 'size-7',
+            )}>
+              <ProfileAvatar
+                username={username}
+                avatarId={avatarId}
+                size="sm"
+                className={cn('size-full', isActive && '!ring-0')}
+              />
+            </span>
+            {compact ? <span className="sr-only">Profile</span> : null}
+          </>
+        )}
+      </NavLink>
     </>
   )
 }
 
 export function AppShell({ children }: { children?: ReactNode }) {
-  const { user, logout, updateAvatar, updateProfile } = useAuth()
+  const { user } = useAuth()
   const dialog = useDialog()
-  const [profileOpen, setProfileOpen] = useState(false)
-
-  async function onLogout() {
-    const confirmed = await dialog.confirm({
-      title: 'Log out?',
-      message: 'You can sign back in at any time to continue tracking your anime.',
-      confirmLabel: 'Log out',
-      tone: 'danger',
-    })
-    if (confirmed) {
-      await logout()
-    }
-  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50">
@@ -167,36 +166,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </NavLink>
 
           <nav
-            className="relative mx-auto hidden w-64 grid-cols-4 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid md:mx-auto md:fixed md:left-1/2 md:-translate-x-1/2 md:top-16 md:z-50 md:bg-zinc-900/90 md:backdrop-blur-xl md:shadow-xl md:border-white/15"
+            className="relative mx-auto hidden w-80 grid-cols-5 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid md:mx-auto md:fixed md:left-1/2 md:-translate-x-1/2 md:top-16 md:z-50 md:bg-zinc-900/90 md:backdrop-blur-xl md:shadow-xl md:border-white/15"
             aria-label="Main"
           >
             {user ? (
-              <NavigationItems
-                username={user.username}
-                avatarId={user.avatar_id}
-                profileOpen={profileOpen}
-                onOpenProfile={() => setProfileOpen(true)}
-              />
+              <NavigationItems username={user.username} avatarId={user.avatar_id} />
             ) : null}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Notifications"
-              title="Notifications"
-              onClick={() => {
-                void dialog.success({
-                  title: 'Notifications coming soon',
-                  message: 'Notifications are still in development and are not available yet.',
-                })
-              }}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-white/10 bg-zinc-900/70 text-zinc-400 shadow-sm shadow-black/20 transition hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden="true">
-                <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            <NotificationBell />
             <button
               type="button"
               aria-label="Help"
@@ -218,17 +197,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         </div>
       </header>
-
-      {user && profileOpen ? (
-        <ProfileModal
-          open
-          user={user}
-          onClose={() => setProfileOpen(false)}
-          onAvatarChange={(avatarId: AvatarId | null) => updateAvatar(avatarId)}
-          onProfileChange={(email: string, username: string) => updateProfile(email, username)}
-          onLogout={onLogout}
-        />
-      ) : null}
 
       <main className="relative mx-auto w-full max-w-5xl px-4 py-8 pb-32 md:pb-10">
         {children ?? <PageTransition />}
@@ -254,15 +222,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Main"
       >
-        <div className="pointer-events-auto relative grid w-full max-w-sm grid-cols-4 items-stretch rounded-full border border-white/15 bg-zinc-900/55 px-2 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
+        <div className="pointer-events-auto relative grid w-full max-w-md grid-cols-5 items-stretch rounded-full border border-white/15 bg-zinc-900/55 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
           {user ? (
-            <NavigationItems
-              compact
-              username={user.username}
-              avatarId={user.avatar_id}
-              profileOpen={profileOpen}
-              onOpenProfile={() => setProfileOpen(true)}
-            />
+            <NavigationItems compact username={user.username} avatarId={user.avatar_id} />
           ) : null}
         </div>
       </nav>

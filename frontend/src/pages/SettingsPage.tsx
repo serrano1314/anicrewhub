@@ -3,12 +3,15 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 import { INPUT_PLACEHOLDERS } from '../lib/placeholders'
 import { createSite, deleteSite, fetchSites, updateSite } from '../api/sites'
+import { useAuth } from '../auth/AuthProvider'
 import { useDialog } from '../components/dialogContext'
 import { fetchReleaseNote } from '../api/releaseNotes'
 import { LibraryBackupSection } from '../components/LibraryBackupSection'
 import { ExtensionDownloadSection } from '../components/ExtensionDownloadSection'
 import { ErrorPanel, LoadingIndicator } from '../components/PageStatus'
 import { ChangePasswordSection } from '../components/ChangePasswordSection'
+import { CopiedSitesSection } from '../components/CopiedSitesSection'
+import { PrivacySharingSection } from '../components/PrivacySharingSection'
 import { ContactSupportFooterButton } from '../components/ContactSupportSection'
 import { ExtensionTokensSection } from '../components/ExtensionTokensSection'
 import { APP_VERSION } from '../lib/config'
@@ -122,6 +125,7 @@ function SettingsSection({
 export function SettingsPage() {
   const queryClient = useQueryClient()
   const dialog = useDialog()
+  const { logout } = useAuth()
   const [draft, setDraft] = useState<SiteDraft>(emptyDraft)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [preferredLinkGroup, setPreferredLinkGroup] = useState<WatchLinkGroup>(
@@ -192,25 +196,52 @@ export function SettingsPage() {
     }
   }
 
+  async function onLogout() {
+    const confirmed = await dialog.confirm({
+      title: 'Log out?',
+      message: 'You can sign back in at any time to continue tracking your anime.',
+      confirmLabel: 'Log out',
+      tone: 'danger',
+    })
+    if (confirmed) {
+      await logout()
+    }
+  }
+
   const error = sitesQuery.error ?? saveMutation.error ?? deleteMutation.error
   const siteCount = sitesQuery.data?.length ?? 0
 
   return (
-    <section className="space-y-5 pb-8">
+    <section className="space-y-5 pb-8 pt-10">
       <header className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/55 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-7 sm:py-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-24 -z-10 size-64 rounded-full bg-indigo-500/20 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 -z-10 size-56 rounded-full bg-sky-400/10 blur-3xl" />
         <div className="flex items-start gap-4">
+          <button
+            type="button"
+            aria-label="Log out"
+            title="Log out"
+            onClick={() => {
+              void onLogout()
+            }}
+            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full border border-rose-300/25 bg-rose-500/10 text-rose-200 transition hover:border-rose-300/40 hover:bg-rose-500/20 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/70 sm:right-6 sm:top-6"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-4" aria-hidden="true">
+              <path d="M10 17l5-5-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 12H3" strokeLinecap="round" />
+              <path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-200/20 bg-indigo-400/10 text-indigo-100 shadow-lg shadow-indigo-950/20">
             <svg viewBox="0 0 24 24" aria-hidden="true" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 3.5a2 2 0 0 1 2 2v.3a6.8 6.8 0 0 1 1.8 1l.2-.2a2 2 0 1 1 2.8 2.8l-.2.2a6.8 6.8 0 0 1 0 2l.2.2a2 2 0 1 1-2.8 2.8l-.2-.2a6.8 6.8 0 0 1-1.8 1v.3a2 2 0 1 1-4 0v-.3a6.8 6.8 0 0 1-1.8-1l-.2.2a2 2 0 1 1-2.8-2.8l.2-.2a6.8 6.8 0 0 1 0-2l-.2-.2a2 2 0 1 1 2.8-2.8l.2.2a6.8 6.8 0 0 1 1.8-1v-.3a2 2 0 0 1 2-2Z" />
               <circle cx="12" cy="10.6" r="2.4" />
             </svg>
           </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80">Personalize</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">Settings</h1>
-            <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-400">
+          <div className="min-w-0 pr-12">
+            <p className={UI.eyebrow}>Personalize</p>
+            <h1 className={`${UI.pageTitle} mt-1`}>Settings</h1>
+            <p className={UI.pageLead}>
               Tune your watch experience, manage your sites, and keep your account and data in order.
             </p>
           </div>
@@ -228,7 +259,7 @@ export function SettingsPage() {
             <svg viewBox="0 0 20 20" aria-hidden="true" className="size-3.5 text-indigo-200" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H17v13H6.5A2.5 2.5 0 0 0 4 18.5zM4 5.5v13M8 7h5" />
             </svg>
-            Default: {preferredLinkGroup === 'saved' ? 'My sites' : 'Official'}
+            Default: {preferredLinkGroup === 'saved' ? 'My sites' : preferredLinkGroup === 'copied' ? 'Copied' : 'Official'}
           </span>
         </div>
       </header>
@@ -276,6 +307,19 @@ export function SettingsPage() {
         <ChangePasswordSection compact />
       </SettingsSection>
       <SettingsSection
+        title="Privacy and sharing"
+        description="Choose who can find your profile, collection, and reusable watch sites."
+        accent="border-teal-200/10 text-teal-200"
+        icon={(
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3 19 6v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+            <path d="M9 12h6M12 9v6" />
+          </svg>
+        )}
+      >
+        <PrivacySharingSection />
+      </SettingsSection>
+      <SettingsSection
         title="Watch experience"
         description="Choose which links open first when you play an episode."
         accent="border-indigo-200/10 text-indigo-200"
@@ -294,9 +338,10 @@ export function SettingsPage() {
                 The other group stays available in the episode player. Change your preference any time.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-zinc-950/50 p-1" role="group" aria-label="Default episode link group">
+            <div className="grid grid-cols-3 gap-1 rounded-full border border-white/10 bg-zinc-950/50 p-1" role="group" aria-label="Default episode link group">
               {([
                 ['saved', 'My sites'],
+                ['copied', 'Copied'],
                 ['official', 'Official'],
               ] as const).map(([value, label]) => (
                 <button
@@ -318,6 +363,11 @@ export function SettingsPage() {
                     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 8.5 10 3l7 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5z" />
                       <path d="M7.5 17v-5h5v5" />
+                    </svg>
+                  ) : value === 'copied' ? (
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="7" y="7" width="9" height="9" rx="1.5" />
+                      <path d="M5 13V4.5A1.5 1.5 0 0 1 6.5 3H13" />
                     </svg>
                   ) : (
                     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -448,6 +498,19 @@ export function SettingsPage() {
           ) : null}
           {error ? <p className="text-sm text-red-300" role="alert">{errorText(error, 'Could not update sites')}</p> : null}
         </div>
+      </SettingsSection>
+      <SettingsSection
+        title="Copied sites"
+        description="Snapshots copied from other people, including their episode and search templates. These stay separate from sites you created."
+        accent="border-cyan-200/10 text-cyan-200"
+        icon={(
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="8" y="8" width="12" height="12" rx="2" />
+            <path d="M6 16V6a2 2 0 0 1 2-2h10" />
+          </svg>
+        )}
+      >
+        <CopiedSitesSection />
       </SettingsSection>
       <SettingsSection
         title="Backup"

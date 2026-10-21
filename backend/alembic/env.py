@@ -15,6 +15,9 @@ from app.models.sites import UserAnimeSite as UserAnimeSiteModel
 from app.models.sites import UserSite as UserSiteModel
 from app.models.password_reset import PasswordResetToken as PasswordResetTokenModel
 from app.models.release_note import ReleaseNote as ReleaseNoteModel
+from app.models.notification import Notification as NotificationModel
+from app.models.social import CopiedSite as CopiedSiteModel
+from app.models.social import UserFollow as UserFollowModel
 from app.models.user import User as UserModel
 
 _ = AnimeModel
@@ -26,6 +29,9 @@ _ = UserAnimeSiteModel
 _ = UserSiteModel
 _ = PasswordResetTokenModel
 _ = ReleaseNoteModel
+_ = NotificationModel
+_ = CopiedSiteModel
+_ = UserFollowModel
 _ = UserModel
 
 config = context.config

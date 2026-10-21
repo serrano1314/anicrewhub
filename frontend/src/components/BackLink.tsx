@@ -12,7 +12,7 @@ export function BackLink({ fallback }: BackLinkProps) {
   const target = state?.back ?? fallback
 
   const className =
-    'inline-flex items-center gap-1.5 rounded-md text-sm text-zinc-300 hover:text-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400'
+    'inline-flex items-center gap-1.5 rounded-md text-sm text-zinc-300 hover:text-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 pt-10'
 
   const icon = (
     <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 fill-current">

@@ -7,7 +7,7 @@ import { ApiError } from '../api/client'
 import {
   addToLibrary,
   fetchWatchedEpisodes,
-  findLibraryEntry,
+  fetchLibraryEntry,
   markUpTo,
   removeFromLibrary,
   resetEpisodeProgress,
@@ -25,11 +25,7 @@ import { airingLabel, displayTitle, formatLabel } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
 import { cn } from '../lib/ui'
-import type { BackTarget } from '../lib/navigation'
-import { LIBRARY_STATUSES, STATUS_LABELS } from '../types/library'
-
-const DEFAULT_BACK: BackTarget = { label: ' My Collection', to: '/' }
-import type { LibraryStatus } from '../types/library'
+import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from '../types/library'
 
 function StatusIcon({ status }: { status: LibraryStatus }) {
   return (
@@ -102,10 +98,11 @@ export function AnimeDetailPage() {
   const inLibrary = episodesQuery.data != null
   const entryQuery = useQuery({
     queryKey: ['library-entry', anilistId],
-    queryFn: () => findLibraryEntry(anilistId as number),
-    enabled: anilistId != null && inLibrary,
+    queryFn: () => fetchLibraryEntry(anilistId as number),
+    enabled: anilistId != null,
     retry: false,
   })
+  const savedEntry = entryQuery.data
 
   async function refreshProgress() {
     await queryClient.invalidateQueries({ queryKey: ['library'] })
@@ -168,7 +165,7 @@ export function AnimeDetailPage() {
   if (anilistId == null) {
     return (
       <div className="space-y-3">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <p className="text-zinc-300">That anime id is not valid.</p>
       </div>
     )
@@ -177,7 +174,7 @@ export function AnimeDetailPage() {
   if (animeQuery.isPending) {
     return (
       <div className="space-y-4">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <LoadingIndicator label="Loading anime…" />
       </div>
     )
@@ -186,7 +183,7 @@ export function AnimeDetailPage() {
   if (animeQuery.isError || !animeQuery.data) {
     return (
       <div className="space-y-3">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <ErrorPanel
           message={errorText(animeQuery.error, 'Could not load this anime')}
           onRetry={() => {
@@ -263,7 +260,7 @@ export function AnimeDetailPage() {
 
   return (
     <article className="min-w-0 max-w-full space-y-6">
-      <BackLink fallback={DEFAULT_BACK} />
+      <BackLink />
       <header className="group relative isolate overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/60 shadow-2xl shadow-black/30">
         {anime.details.banner_url || anime.cover_url ? (
           <img
@@ -275,7 +272,7 @@ export function AnimeDetailPage() {
         ) : null}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-zinc-950/85 via-zinc-950/65 to-indigo-950/40" />
         <div className="relative flex min-w-0 flex-col gap-5 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
-          {!inLibrary && !episodesQuery.isPending ? (
+          {entryQuery.isSuccess && savedEntry == null ? (
             <>
               <button
                 type="button"
@@ -320,21 +317,21 @@ export function AnimeDetailPage() {
               ) : null}
             </>
           ) : null}
-          {inLibrary ? (
+          {savedEntry ? (
             <>
               <div className="absolute right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
                 <button
                   type="button"
-                  disabled={entryQuery.isPending || !entryQuery.data || updateMutation.isPending}
-                  aria-label={entryQuery.data?.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                  aria-pressed={entryQuery.data?.is_favorite ?? false}
-                  title={entryQuery.data?.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  disabled={updateMutation.isPending}
+                  aria-label={savedEntry.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  aria-pressed={savedEntry.is_favorite}
+                  title={savedEntry.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                   onClick={() =>
-                    updateMutation.mutate({ is_favorite: !entryQuery.data?.is_favorite })
+                    updateMutation.mutate({ is_favorite: !savedEntry.is_favorite })
                   }
                   className={cn(
                     'inline-flex size-10 items-center justify-center rounded-full border bg-zinc-950/50 shadow-lg shadow-black/30 backdrop-blur-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/70 disabled:opacity-60',
-                    entryQuery.data?.is_favorite
+                    savedEntry.is_favorite
                       ? 'border-rose-300/40 text-rose-200 hover:bg-rose-500/20'
                       : 'border-white/15 text-zinc-300 hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-200',
                   )}
@@ -342,7 +339,7 @@ export function AnimeDetailPage() {
                   <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5">
                     <path
                       d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"
-                      fill={entryQuery.data?.is_favorite ? 'currentColor' : 'none'}
+                      fill={savedEntry.is_favorite ? 'currentColor' : 'none'}
                       stroke="currentColor"
                       strokeWidth="1.8"
                       strokeLinecap="round"
@@ -353,22 +350,14 @@ export function AnimeDetailPage() {
                 <button
                   type="button"
                   disabled={updateMutation.isPending}
-                  aria-label={`Collection status: ${entryQuery.data?.status ? STATUS_LABELS[entryQuery.data.status] : 'loading'}. Change status`}
+                  aria-label={`Collection status: ${STATUS_LABELS[savedEntry.status]}. Change status`}
                   aria-expanded={isStatusMenuOpen}
                   aria-controls="anime-current-status-menu"
-                  title={entryQuery.data?.status ? STATUS_LABELS[entryQuery.data.status] : 'Change collection status'}
+                  title={STATUS_LABELS[savedEntry.status]}
                   onClick={() => setIsStatusMenuOpen((open) => !open)}
                   className="inline-flex size-10 items-center justify-center rounded-full border border-indigo-200/25 bg-zinc-950/50 text-indigo-100 shadow-lg shadow-black/30 backdrop-blur-xl transition hover:border-indigo-200/45 hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 disabled:opacity-60"
                 >
-                  {entryQuery.isPending ? (
-                    <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-indigo-100/30 border-t-indigo-100" />
-                  ) : entryQuery.data?.status ? (
-                    <StatusIcon status={entryQuery.data.status} />
-                  ) : (
-                    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m4 10 4 4 8-8" />
-                    </svg>
-                  )}
+                  <StatusIcon status={savedEntry.status} />
                 </button>
               </div>
               {isStatusMenuOpen ? (
@@ -382,13 +371,13 @@ export function AnimeDetailPage() {
                     <button
                       key={status}
                       type="button"
-                      disabled={entryQuery.isPending || updateMutation.isPending}
+                      disabled={updateMutation.isPending}
                       aria-label={`Set status to ${STATUS_LABELS[status]}`}
-                      aria-pressed={entryQuery.data?.status === status}
+                      aria-pressed={savedEntry.status === status}
                       onClick={() => updateMutation.mutate({ status })}
                       className={cn(
                         'inline-flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 disabled:opacity-50',
-                        entryQuery.data?.status === status
+                        savedEntry.status === status
                           ? 'bg-indigo-500/20 text-indigo-100'
                           : 'text-zinc-100 hover:bg-white/10 hover:text-white',
                       )}

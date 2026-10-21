@@ -9,9 +9,21 @@ export class ApiError extends Error {
 }
 
 let accessToken: string | null = null
+let refreshInFlight: Promise<string | null> | null = null
+const tokenListeners = new Set<(token: string | null) => void>()
 
 export function setAccessToken(token: string | null): void {
   accessToken = token
+  for (const listener of tokenListeners) {
+    listener(token)
+  }
+}
+
+export function onAccessTokenChange(listener: (token: string | null) => void): () => void {
+  tokenListeners.add(listener)
+  return () => {
+    tokenListeners.delete(listener)
+  }
 }
 
 export function getAccessToken(): string | null {
@@ -53,10 +65,65 @@ export async function readApiError(response: Response): Promise<ApiError> {
   return new ApiError(message, response.status)
 }
 
+function canRenewSession(path: string): boolean {
+  return (
+    !path.startsWith('/api/v1/auth/refresh') &&
+    !path.startsWith('/api/v1/auth/login') &&
+    !path.startsWith('/api/v1/auth/register') &&
+    !path.startsWith('/api/v1/auth/forgot-password') &&
+    !path.startsWith('/api/v1/auth/reset-password')
+  )
+}
+
+async function renewAccessToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return null
+        }
+        const data: unknown = await response.json()
+        if (
+          !data ||
+          typeof data !== 'object' ||
+          !('access_token' in data) ||
+          typeof data.access_token !== 'string'
+        ) {
+          return null
+        }
+        setAccessToken(data.access_token)
+        return data.access_token
+      })
+      .finally(() => {
+        refreshInFlight = null
+      })
+  }
+  return refreshInFlight
+}
+
 export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const headers = buildAuthHeaders(accessToken, options.headers)
-  return fetch(path, { ...options, headers, credentials: 'include' })
+  const response = await fetch(path, {
+    ...options,
+    headers: buildAuthHeaders(accessToken, options.headers),
+    credentials: 'include',
+  })
+  if (response.status !== 401 || !canRenewSession(path)) {
+    return response
+  }
+  const nextToken = await renewAccessToken()
+  if (!nextToken) {
+    return response
+  }
+  return fetch(path, {
+    ...options,
+    headers: buildAuthHeaders(nextToken, options.headers),
+    credentials: 'include',
+  })
 }

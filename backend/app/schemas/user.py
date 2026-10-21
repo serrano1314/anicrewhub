@@ -23,3 +23,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     username: str
     avatar_id: AvatarId | None = None
+    profile_public: bool = True
+    share_collection: bool = True
+    share_watch_sites: bool = True
+    terms_accepted: bool = False

@@ -1,13 +1,17 @@
+import { UI } from '../lib/ui'
+
 type PageHeaderProps = {
+  eyebrow: string
   title: string
   description?: string
 }
 
-export function PageHeader({ title, description }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description }: PageHeaderProps) {
   return (
-    <header className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">{title}</h1>
-      {description ? <p className="text-sm text-zinc-400">{description}</p> : null}
+    <header>
+      <p className={UI.eyebrow}>{eyebrow}</p>
+      <h1 className={`${UI.pageTitle} mt-1`}>{title}</h1>
+      {description ? <p className={UI.pageLead}>{description}</p> : null}
     </header>
   )
 }

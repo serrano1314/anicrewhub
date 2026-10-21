@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import decode_token
+from app.core.terms import user_accepted_current_terms
 from app.db.session import get_db
 from app.models.user import User
 from app.services.auth import get_user_by_id
@@ -38,6 +39,15 @@ def get_current_user(
             detail="User not found",
         )
     return user
+
+
+def require_accepted_terms(current_user: User = Depends(get_current_user)) -> User:
+    if not user_accepted_current_terms(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accept the current terms to continue",
+        )
+    return current_user
 
 
 def get_extension_user(

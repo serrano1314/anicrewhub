@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.anime import Anime
 from app.models.sites import UserAnimeSite, UserSite
+from app.models.social import CopiedSite
 from app.models.user import User
 from app.schemas.watch_links import WatchLinkSource
 from app.services.watch_links import (
@@ -194,6 +195,62 @@ def test_saved_site_without_a_link_still_returns_official_streams(db: Session) -
     links = list_watch_links(db, user, anime.anilist_id, 4)
 
     assert [link.source for link in links] == [WatchLinkSource.official, WatchLinkSource.search]
+
+
+def test_copied_site_fills_episode_template(db: Session) -> None:
+    user = _user(db)
+    source = _user(db, "source")
+    anime = _save_anime(
+        db,
+        title_english="One Piece",
+        title_romaji="One Piece",
+        external_links=[],
+    )
+    db.add(
+        CopiedSite(
+            user_id=user.id,
+            source_user_id=source.id,
+            source_site_id=source.id,
+            source_username=source.username,
+            name="Example",
+            base_url="https://example.com",
+            episode_url_template="https://example.com/watch/{slug}/{episode}",
+            search_url_template="https://example.com/search?q={title}",
+        )
+    )
+    db.commit()
+
+    links = list_watch_links(db, user, anime.anilist_id, 12)
+
+    copied = next(link for link in links if link.source == WatchLinkSource.copied)
+    assert copied.label == "Example"
+    assert copied.url == "https://example.com/watch/one-piece/12"
+
+
+def test_copied_site_without_templates_uses_base_url(db: Session) -> None:
+    user = _user(db)
+    anime = _save_anime(
+        db,
+        title_english="One Piece",
+        title_romaji="One Piece",
+        external_links=[],
+    )
+    db.add(
+        CopiedSite(
+            user_id=user.id,
+            source_user_id=None,
+            source_site_id=user.id,
+            source_username="source",
+            name="Home",
+            base_url="https://example.com/home",
+        )
+    )
+    db.commit()
+
+    links = list_watch_links(db, user, anime.anilist_id, 3)
+
+    copied = next(link for link in links if link.source == WatchLinkSource.copied)
+    assert copied.url == "https://example.com/home"
 
 
 def test_watch_links_ignore_another_users_sites(db: Session) -> None:

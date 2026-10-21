@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { ApiError, buildAuthHeaders, readApiError, readJson } from './client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ApiError, apiFetch, buildAuthHeaders, readApiError, readJson, setAccessToken } from './client'
 
 describe('buildAuthHeaders', () => {
   it('sets JSON content type and omits Authorization when logged out', () => {
@@ -24,6 +24,42 @@ describe('readApiError', () => {
     expect(error).toBeInstanceOf(ApiError)
     expect(error.status).toBe(401)
     expect(error.message).toBe('Invalid email or password')
+  })
+})
+
+describe('apiFetch', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    setAccessToken(null)
+  })
+
+  it('renews an expired access token and retries the request', async () => {
+    setAccessToken('expired')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: 'Unauthorized' }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fresh' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ email: 'steven@example.com' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await apiFetch('/api/v1/auth/me')
+
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/v1/auth/refresh')
+    expect(new Headers(fetchMock.mock.calls[2]?.[1].headers).get('Authorization')).toBe('Bearer fresh')
+  })
+
+  it('does not renew a failed login', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ detail: 'Invalid email or password' }), { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await apiFetch('/api/v1/auth/login', { method: 'POST' })
+
+    expect(response.status).toBe(401)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

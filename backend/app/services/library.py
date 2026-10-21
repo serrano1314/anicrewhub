@@ -228,6 +228,11 @@ def update_library(
     return entry_response(entry, anime, count_watched(db, user.id, anime.id))
 
 
+def read_library_entry(db: Session, user: User, anilist_id: int) -> LibraryEntryResponse:
+    entry, anime = get_library_entry(db, user.id, anilist_id)
+    return entry_response(entry, anime, count_watched(db, user.id, anime.id))
+
+
 def remove_from_library(db: Session, user: User, anilist_id: int) -> None:
     entry, anime = get_library_entry(db, user.id, anilist_id)
     db.execute(

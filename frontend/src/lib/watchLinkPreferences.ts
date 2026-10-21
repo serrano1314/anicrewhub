@@ -1,10 +1,12 @@
-export type WatchLinkGroup = 'saved' | 'official'
+export type WatchLinkGroup = 'saved' | 'copied' | 'official'
 
 const STORAGE_KEY = 'anime-tracker-watch-link-group'
+const GROUPS: readonly WatchLinkGroup[] = ['saved', 'copied', 'official']
 
 export function getPreferredWatchLinkGroup(): WatchLinkGroup {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === 'official' ? 'official' : 'saved'
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    return GROUPS.includes(stored as WatchLinkGroup) ? (stored as WatchLinkGroup) : 'saved'
   } catch (error) {
     console.warn('Unable to load the watch link preference.', error)
     return 'saved'

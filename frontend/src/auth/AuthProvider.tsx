@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { fetchMe, login as loginRequest, logout as logoutRequest, refresh, register as registerRequest, updateAvatar as updateAvatarRequest, updateProfile as updateProfileRequest } from '../api/auth'
-import { ApiError, setAccessToken } from '../api/client'
+import { acceptTerms as acceptTermsRequest, fetchTerms } from '../api/sharing'
+import { ApiError, onAccessTokenChange, setAccessToken } from '../api/client'
 import type { AvatarId, User } from '../types/auth'
 
 type AuthContextValue = {
@@ -19,7 +20,8 @@ type AuthContextValue = {
   authError: boolean
   retryAuth: () => void
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, username: string, password: string) => Promise<void>
+  register: (email: string, username: string, password: string, termsVersion: string) => Promise<void>
+  acceptTerms: () => Promise<void>
   updateAvatar: (avatarId: AvatarId | null) => Promise<void>
   updateProfile: (email: string, username: string) => Promise<void>
   logout: () => Promise<void>
@@ -41,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retryAuth = useCallback(() => {
     setBootstrapAttempt((attempt) => attempt + 1)
   }, [])
+
+  useEffect(() => onAccessTokenChange(setToken), [])
 
   useEffect(() => {
     let cancelled = false
@@ -108,13 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const register = useCallback(
-    async (email: string, username: string, password: string) => {
-      const data = await registerRequest({ email, username, password })
+    async (email: string, username: string, password: string, termsVersion: string) => {
+      const data = await registerRequest({ email, username, password, terms_version: termsVersion })
       applyToken(data.access_token)
       await queryClient.fetchQuery({ queryKey: ['me'], queryFn: fetchMe })
     },
     [applyToken, queryClient],
   )
+
+  const acceptTerms = useCallback(async () => {
+    const terms = await fetchTerms()
+    await acceptTermsRequest(terms.version)
+    await queryClient.fetchQuery({ queryKey: ['me'], queryFn: fetchMe })
+  }, [queryClient])
 
   const logout = useCallback(async () => {
     try {
@@ -160,11 +170,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       retryAuth,
       login,
       register,
+      acceptTerms,
       updateAvatar,
       updateProfile,
       logout,
     }),
-    [authError, isAuthenticated, isReady, login, logout, meQuery.data, register, retryAuth, updateAvatar, updateProfile],
+    [acceptTerms, authError, isAuthenticated, isReady, login, logout, meQuery.data, register, retryAuth, updateAvatar, updateProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

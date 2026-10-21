@@ -321,7 +321,7 @@ export function LibraryPage() {
   return (
     <section className={UI.page}>
       <AnimeSpotlightCarousel />
-      <PageHeader title="My Collection" description="Track progress and jump back into any show." />
+      <PageHeader eyebrow="Collection" title="My Collection" description="Track progress and jump back into any show." />
       {collectionSummary ? (
         <div
           className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
@@ -358,7 +358,10 @@ export function LibraryPage() {
               onClick={() => setTab(tab)}
               className={cn(
                 UI.pill,
-                'inline-flex items-center gap-2 whitespace-nowrap p-2.5',
+                'inline-flex shrink-0 items-center justify-center whitespace-nowrap',
+                selected
+                  ? 'h-10 gap-2 px-3.5 py-2.5'
+                  : 'size-10 !p-0',
                 selected && UI.pillActive,
               )}
             >
@@ -400,6 +403,22 @@ export function LibraryPage() {
                   />
                 )}
               </svg>
+              <span
+                aria-hidden={!selected}
+                className={cn(
+                  'grid transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none',
+                  selected ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'min-w-0 overflow-hidden whitespace-nowrap transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                    selected ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0',
+                  )}
+                >
+                  {tab.label}
+                </span>
+              </span>
             </button>
           )
         })}
@@ -525,7 +544,7 @@ export function LibraryPage() {
               if (event.key === 'Escape') setLayoutMenuOpen(false)
             }}
             className={cn(
-              'group relative hidden h-10 items-center overflow-hidden rounded-full border bg-zinc-900/60 text-zinc-300 transition-[width,background-color,border-color] duration-200 hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-within:border-indigo-300/40 focus-within:bg-indigo-500/10 lg:flex',
+              'group relative hidden h-10 items-center justify-center overflow-hidden rounded-full border bg-zinc-900/60 text-zinc-300 transition-[width,background-color,border-color] duration-200 hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-within:border-indigo-300/40 focus-within:bg-indigo-500/10 lg:flex',
               layoutMenuOpen ? 'w-[104px] border-indigo-300/40' : 'w-10 border-white/10 hover:w-[104px] focus-within:w-[104px]',
             )}
           >

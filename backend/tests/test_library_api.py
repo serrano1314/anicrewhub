@@ -12,6 +12,7 @@ REGISTER_BODY = {
     "email": "steven@example.com",
     "username": "steven",
     "password": "password123",
+    "terms_version": "2026-10-21",
 }
 
 
@@ -70,6 +71,15 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     )
     assert duplicate.status_code == 409
 
+    loaded = client.get("/api/v1/library/21", headers=headers)
+    assert loaded.status_code == 200
+    assert loaded.json()["anilist_id"] == 21
+    assert loaded.json()["status"] == "watching"
+    assert loaded.json()["is_favorite"] is False
+
+    missing = client.get("/api/v1/library/999", headers=headers)
+    assert missing.status_code == 404
+
     patched = client.patch(
         "/api/v1/library/21",
         json={"score": 8, "status": "on_hold"},
@@ -127,6 +137,7 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
     removed = client.delete("/api/v1/library/21", headers=headers)
     assert removed.status_code == 204
     assert client.get("/api/v1/library/21/episodes", headers=headers).status_code == 404
+    assert client.get("/api/v1/library/21", headers=headers).status_code == 404
     assert db.scalar(select(func.count()).select_from(EpisodeProgress)) == 0
 
 
@@ -202,7 +213,7 @@ def test_library_is_private_per_user(client: TestClient, db: Session) -> None:
     client.post("/api/v1/library", json={"anilist_id": 21, "status": "watching"}, headers=owner)
     other = _auth(
         client,
-        {"email": "other@example.com", "username": "other", "password": "password123"},
+        {"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
     )
     assert client.get("/api/v1/library", headers=other).json()["results"] == []
     assert client.patch("/api/v1/library/21", json={"score": 5}, headers=other).status_code == 404

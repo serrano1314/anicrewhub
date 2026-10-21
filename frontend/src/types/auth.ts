@@ -5,6 +5,10 @@ export type User = {
   email: string
   username: string
   avatar_id: AvatarId | null
+  profile_public: boolean
+  share_collection: boolean
+  share_watch_sites: boolean
+  terms_accepted: boolean
 }
 
 export type TokenResponse = {
@@ -16,6 +20,7 @@ export type RegisterRequest = {
   email: string
   username: string
   password: string
+  terms_version: string
 }
 
 export type LoginRequest = {
