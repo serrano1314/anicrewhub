@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { fetchMe, login as loginRequest, logout as logoutRequest, refresh, register as registerRequest, updateAvatar as updateAvatarRequest, updateProfile as updateProfileRequest } from '../api/auth'
-import { ApiError, setAccessToken } from '../api/client'
+import { ApiError, onAccessTokenChange, setAccessToken } from '../api/client'
 import type { AvatarId, User } from '../types/auth'
 
 type AuthContextValue = {
@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retryAuth = useCallback(() => {
     setBootstrapAttempt((attempt) => attempt + 1)
   }, [])
+
+  useEffect(() => onAccessTokenChange(setToken), [])
 
   useEffect(() => {
     let cancelled = false

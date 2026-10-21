@@ -25,7 +25,13 @@ from app.schemas.library_backup import (
 )
 from app.services.library_backup import export_user_library, import_user_library
 from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited
-from app.services.library import add_to_library, list_library, remove_from_library, update_library
+from app.services.library import (
+    add_to_library,
+    list_library,
+    read_library_entry,
+    remove_from_library,
+    update_library,
+)
 from app.services.progress import (
     MAX_EPISODE_NUMBER,
     list_watched_episodes,
@@ -105,6 +111,15 @@ def import_library(
     current_user: User = Depends(get_current_user),
 ) -> LibraryImportResponse:
     return import_user_library(db, current_user, body.document)
+
+
+@router.get("/{anilist_id}", response_model=LibraryEntryResponse)
+def read_one_library_entry(
+    anilist_id: int = Path(ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LibraryEntryResponse:
+    return read_library_entry(db, current_user, anilist_id)
 
 
 @router.get("/{anilist_id}/episodes", response_model=WatchedEpisodesResponse)

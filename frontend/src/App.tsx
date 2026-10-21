@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SearchPage } from './pages/SearchPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
 
 const queryClient = new QueryClient()
@@ -67,6 +68,7 @@ export default function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/anime/:anilistId" element={<AnimeDetailPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Route>
