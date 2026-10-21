@@ -9,6 +9,7 @@ REGISTER_BODY = {
     "email": "backup@example.com",
     "username": "backupuser",
     "password": "password123",
+    "terms_version": "2026-10-21",
 }
 
 

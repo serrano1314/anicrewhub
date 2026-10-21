@@ -1,15 +1,20 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchLibrary } from '../api/library'
+import { fetchFollowers, fetchFollowing, fetchProfile, updatePrivacy } from '../api/sharing'
 import { useAuth } from '../auth/AuthProvider'
+import { useDialog } from '../components/dialogContext'
+import { FollowRequestsSection } from '../components/FollowRequestsSection'
 import { PresetAvatarArt, ProfileAvatar } from '../components/ProfileAvatar'
 import { discoverAvatarPresets, type AvatarPreset } from '../lib/avatarPresets'
 import { UI, cn } from '../lib/ui'
-import type { AvatarId } from '../types/auth'
+import type { AvatarId, User } from '../types/auth'
 
 type EditableField = 'username' | 'email'
+
+type ConnectionList = 'followers' | 'following'
 
 const plainIconButton =
   'inline-flex size-6 shrink-0 items-center justify-center text-zinc-400 transition hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 disabled:opacity-40'
@@ -49,9 +54,28 @@ function CameraIcon() {
   )
 }
 
+function LockIcon({ locked }: { locked: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {locked ? (
+        <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+      ) : (
+        <path d="M8 11V8a4 4 0 0 1 7.5-2" />
+      )}
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+    </svg>
+  )
+}
+
+function countLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
 export function ProfilePage() {
   const { user, updateAvatar, updateProfile } = useAuth()
   const navigate = useNavigate()
+  const dialog = useDialog()
+  const queryClient = useQueryClient()
   const titleId = useId()
   const avatarMenuRef = useRef<HTMLDivElement>(null)
   const fieldInputRef = useRef<HTMLInputElement>(null)
@@ -65,6 +89,7 @@ export function ProfilePage() {
   const [savedField, setSavedField] = useState<EditableField | null>(null)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
+  const [connectionList, setConnectionList] = useState<ConnectionList | null>(null)
   const hasUnsavedChanges =
     user != null &&
     ((editingField === 'username' && username.trim() !== user.username) ||
@@ -77,6 +102,26 @@ export function ProfilePage() {
   const collectionQuery = useQuery({
     queryKey: ['library', 'all', false, 1, '', 'updated'],
     queryFn: () => fetchLibrary(undefined, 1),
+  })
+  const socialQuery = useQuery({
+    queryKey: ['public-profile', user?.username],
+    queryFn: () => fetchProfile(user?.username ?? ''),
+    enabled: user != null,
+  })
+  const connectionsQuery = useQuery({
+    queryKey: ['profile-connections', connectionList],
+    queryFn: () => (connectionList === 'following' ? fetchFollowing() : fetchFollowers()),
+    enabled: connectionList != null,
+  })
+  const privacyMutation = useMutation({
+    mutationFn: updatePrivacy,
+    onSuccess: (privacy) => {
+      queryClient.setQueryData(['privacy'], privacy)
+      queryClient.setQueryData<User>(['me'], (current) => (current ? { ...current, ...privacy } : current))
+      void queryClient.invalidateQueries({ queryKey: ['me'] })
+      void queryClient.invalidateQueries({ queryKey: ['public-profile'] })
+      void queryClient.invalidateQueries({ queryKey: ['user-search'] })
+    },
   })
   const avatarPresets: AvatarPreset[] = avatarPresetsQuery.data ?? []
   const summary = collectionQuery.data?.summary
@@ -206,6 +251,31 @@ export function ProfilePage() {
     }
   }
 
+  async function toggleProfileVisibility() {
+    if (!user || privacyMutation.isPending) {
+      return
+    }
+    const makingPublic = !user.profile_public
+    const confirmed = await dialog.confirm({
+      title: makingPublic ? 'Make your profile public?' : 'Make your profile private?',
+      message: makingPublic
+        ? 'People who find your profile can follow you right away. Your collection and watch sites stay visible only while those sharing settings are on.'
+        : 'People can still find you by username. Your collection and watch sites stay hidden until you approve a follow, and only for the sharing settings you leave on.',
+      confirmLabel: makingPublic ? 'Make public' : 'Make private',
+    })
+    if (!confirmed) {
+      return
+    }
+    try {
+      await privacyMutation.mutateAsync({ profile_public: makingPublic })
+    } catch (error) {
+      await dialog.error({
+        title: 'Could not update privacy',
+        message: error instanceof ApiError ? error.message : 'Could not change whether your profile is public.',
+      })
+    }
+  }
+
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!user || !hasUnsavedChanges) {
@@ -243,14 +313,16 @@ export function ProfilePage() {
     <section className="space-y-5 pb-8 mt-10">
       <header className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/55 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl sm:px-7 sm:py-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-64 rounded-full bg-indigo-500/20 blur-3xl" />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80">Account</p>
-        <h1 id={titleId} className="mt-1 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
+        <p className={UI.eyebrow}>Account</p>
+        <h1 id={titleId} className={`${UI.pageTitle} mt-1`}>
           Profile
         </h1>
-        <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-400">
+        <p className={UI.pageLead}>
           Your avatar, account details, and a snapshot of your collection.
         </p>
       </header>
+
+      <FollowRequestsSection />
 
       <section className="rounded-3xl border border-white/10 bg-zinc-900/55 p-5 sm:p-6">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
@@ -401,8 +473,93 @@ export function ProfilePage() {
               <p className="text-xs text-zinc-400" role="status">Loading avatars…</p>
             ) : null}
             {profileError ? <p className="text-sm text-rose-300" role="alert">{profileError}</p> : null}
+
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-zinc-400 sm:justify-start">
+              <button
+                type="button"
+                aria-label={user.profile_public ? 'Make profile private' : 'Make profile public'}
+                title={user.profile_public ? 'Public. Click to make private' : 'Private. Click to make public'}
+                disabled={privacyMutation.isPending}
+                onClick={() => { void toggleProfileVisibility() }}
+                className={cn(
+                  plainIconButton,
+                  'size-7',
+                  user.profile_public ? 'text-zinc-300 hover:text-zinc-50' : 'text-amber-300 hover:text-amber-200',
+                )}
+              >
+                <LockIcon locked={!user.profile_public} />
+              </button>
+              <span>{user.profile_public ? 'Public' : 'Private'}</span>
+              <span aria-hidden="true">·</span>
+              {socialQuery.isPending ? (
+                <span>Loading followers…</span>
+              ) : socialQuery.isError || socialQuery.data?.follower_count == null || socialQuery.data.following_count == null ? (
+                <span>Followers could not be loaded.</span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    aria-pressed={connectionList === 'followers'}
+                    onClick={() => setConnectionList((current) => (current === 'followers' ? null : 'followers'))}
+                    className={cn(
+                      'tabular-nums transition hover:text-zinc-50',
+                      connectionList === 'followers' ? 'text-indigo-200' : 'text-zinc-200',
+                    )}
+                  >
+                    {countLabel(socialQuery.data.follower_count, 'follower', 'followers')}
+                  </button>
+                  <span aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    aria-pressed={connectionList === 'following'}
+                    onClick={() => setConnectionList((current) => (current === 'following' ? null : 'following'))}
+                    className={cn(
+                      'tabular-nums transition hover:text-zinc-50',
+                      connectionList === 'following' ? 'text-indigo-200' : 'text-zinc-200',
+                    )}
+                  >
+                    {countLabel(socialQuery.data.following_count, 'following', 'following')}
+                  </button>
+                </>
+              )}
+            </div>
           </form>
         </div>
+        {connectionList ? (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <h2 className="text-sm font-semibold text-zinc-100">
+              {connectionList === 'followers' ? 'Followers' : 'Following'}
+            </h2>
+            {connectionsQuery.isPending ? (
+              <p className="mt-3 text-sm text-zinc-400">Loading {connectionList}…</p>
+            ) : connectionsQuery.isError ? (
+              <p className="mt-3 text-sm text-rose-300" role="alert">
+                Could not load {connectionList}.
+              </p>
+            ) : connectionsQuery.data && connectionsQuery.data.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {connectionsQuery.data.map((person) => (
+                  <li key={person.username}>
+                    <Link
+                      to={`/users/${encodeURIComponent(person.username)}`}
+                      className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-white/5"
+                    >
+                      <ProfileAvatar username={person.username} avatarId={person.avatar_id} size="sm" />
+                      <span className="min-w-0 truncate text-sm text-zinc-100">{person.username}</span>
+                      {person.profile_public ? null : (
+                        <span className="text-xs text-zinc-500">Private</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-zinc-400">
+                {connectionList === 'followers' ? 'No followers yet.' : 'You are not following anyone yet.'}
+              </p>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section aria-labelledby={`${titleId}-collection`} className="space-y-3">

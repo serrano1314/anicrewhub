@@ -1,8 +1,9 @@
 /** Shared Tailwind class groups (see index.css for `.ui-*` definitions). */
 export const UI = {
-  page: 'space-y-6',
+  page: 'space-y-6 pt-10',
+  eyebrow: 'text-[10px] font-semibold uppercase tracking-[0.24em] text-indigo-200/80',
   pageTitle: 'text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl',
-  pageLead: 'text-sm text-zinc-400',
+  pageLead: 'mt-1 max-w-xl text-sm leading-relaxed text-zinc-400',
   card: 'ui-card',
   cardInteractive: 'ui-card ui-card-interactive',
   fieldLabel: 'ui-field-label',

@@ -25,11 +25,7 @@ import { airingLabel, displayTitle, formatLabel } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
 import { cn } from '../lib/ui'
-import type { BackTarget } from '../lib/navigation'
-import { LIBRARY_STATUSES, STATUS_LABELS } from '../types/library'
-
-const DEFAULT_BACK: BackTarget = { label: ' My Collection', to: '/' }
-import type { LibraryStatus } from '../types/library'
+import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from '../types/library'
 
 function StatusIcon({ status }: { status: LibraryStatus }) {
   return (
@@ -169,7 +165,7 @@ export function AnimeDetailPage() {
   if (anilistId == null) {
     return (
       <div className="space-y-3">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <p className="text-zinc-300">That anime id is not valid.</p>
       </div>
     )
@@ -178,7 +174,7 @@ export function AnimeDetailPage() {
   if (animeQuery.isPending) {
     return (
       <div className="space-y-4">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <LoadingIndicator label="Loading anime…" />
       </div>
     )
@@ -187,7 +183,7 @@ export function AnimeDetailPage() {
   if (animeQuery.isError || !animeQuery.data) {
     return (
       <div className="space-y-3">
-        <BackLink fallback={DEFAULT_BACK} />
+        <BackLink />
         <ErrorPanel
           message={errorText(animeQuery.error, 'Could not load this anime')}
           onRetry={() => {
@@ -264,7 +260,7 @@ export function AnimeDetailPage() {
 
   return (
     <article className="min-w-0 max-w-full space-y-6">
-      <BackLink fallback={DEFAULT_BACK} />
+      <BackLink />
       <header className="group relative isolate overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/60 shadow-2xl shadow-black/30">
         {anime.details.banner_url || anime.cover_url ? (
           <img

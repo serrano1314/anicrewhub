@@ -207,11 +207,11 @@ export function AnimeSpotlightCarousel({
     <section className="mx-auto w-full max-w-5xl flex-none self-stretch space-y-4" aria-labelledby="anime-spotlight-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Discover</p>
-          <h2 id="anime-spotlight-title" className="mt-1 text-xl font-semibold tracking-tight text-zinc-50">
+          <p className={UI.eyebrow}>Discover</p>
+          <h2 id="anime-spotlight-title" className={`${UI.pageTitle} mt-1`}>
             Find your next favorite
           </h2>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className={UI.pageLead}>
             {showTopTen
               ? `All ${topTenResults.length} ${category === 'trending' ? 'trending' : 'latest'} picks`
               : activeCategory.description}

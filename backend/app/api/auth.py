@@ -41,7 +41,7 @@ def register(
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     enforce_rate_limit(request, "auth")
-    user = register_user(db, body.email, body.username, body.password)
+    user = register_user(db, body.email, body.username, body.password, body.terms_version)
     return _issue_tokens(response, user)
 
 

@@ -6,6 +6,7 @@ import type { WatchLinkSource } from '../types/anime'
 
 const SOURCE_LABEL: Record<WatchLinkSource, string> = {
   saved: 'Your site',
+  copied: 'Copied',
   official: 'Official',
   search: 'Search',
 }

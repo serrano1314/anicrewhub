@@ -57,7 +57,7 @@ export type AnimeSearchResponse = {
   results: Anime[]
 }
 
-export type WatchLinkSource = 'saved' | 'official' | 'search'
+export type WatchLinkSource = 'saved' | 'copied' | 'official' | 'search'
 
 export type WatchLink = {
   label: string

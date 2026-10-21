@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class WatchLinkSource(StrEnum):
     saved = "saved"
+    copied = "copied"
     official = "official"
     search = "search"
 

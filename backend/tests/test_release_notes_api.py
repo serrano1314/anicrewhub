@@ -11,6 +11,7 @@ def _auth(client: TestClient) -> dict[str, str]:
             "email": "release-notes@example.com",
             "username": "release_notes",
             "password": "password123",
+            "terms_version": "2026-10-21",
         },
     )
     return {"Authorization": f"Bearer {response.json()['access_token']}"}

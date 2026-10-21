@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Response, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_accepted_terms
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.sites import (
@@ -25,7 +25,7 @@ from app.services.sites import (
     update_anime_site,
 )
 
-router = APIRouter(tags=["sites"])
+router = APIRouter(tags=["sites"], dependencies=[Depends(require_accepted_terms)])
 
 
 @router.get("/sites", response_model=list[SiteResponse])

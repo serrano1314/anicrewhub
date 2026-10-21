@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchWatchLinks } from '../api/anime'
@@ -6,9 +6,12 @@ import { ApiError } from '../api/client'
 import type { WatchLinkSource } from '../types/anime'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { getPreferredWatchLinkGroup } from '../lib/watchLinkPreferences'
+import { UI, cn } from '../lib/ui'
+import type { WatchLink } from '../types/anime'
 
 const SOURCE_LABEL: Record<WatchLinkSource, string> = {
   saved: 'Your site',
+  copied: 'Copied',
   official: 'Official',
   search: 'Search',
 }
@@ -35,6 +38,11 @@ export function WatchLinksDialog({
   onToggleWatched,
 }: WatchLinksDialogProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const copiedLinkRef = useRef<WatchLink | null>(null)
+  const copiedSettledRef = useRef(false)
+  const [copiedPrompt, setCopiedPrompt] = useState<WatchLink | null>(null)
+  const [copiedSecondsLeft, setCopiedSecondsLeft] = useState(10)
+  const [copiedBarShrinking, setCopiedBarShrinking] = useState(false)
   const preferredGroup = getPreferredWatchLinkGroup()
   useBodyScrollLock(true)
   const linksQuery = useQuery({
@@ -42,20 +50,70 @@ export function WatchLinksDialog({
     queryFn: () => fetchWatchLinks(anilistId, episode),
   })
 
+  function finishCopiedPrompt(openSite: boolean) {
+    if (copiedSettledRef.current) {
+      return
+    }
+    copiedSettledRef.current = true
+    const link = copiedLinkRef.current
+    copiedLinkRef.current = null
+    setCopiedBarShrinking(false)
+    setCopiedPrompt(null)
+    if (openSite && link) {
+      window.open(link.url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  function askBeforeCopiedSite(link: WatchLink) {
+    copiedSettledRef.current = false
+    copiedLinkRef.current = link
+    setCopiedSecondsLeft(10)
+    setCopiedBarShrinking(false)
+    setCopiedPrompt(link)
+  }
+
   useEffect(() => {
     closeButtonRef.current?.focus({ preventScroll: true })
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
+      if (event.key !== 'Escape') {
+        return
       }
+      if (copiedLinkRef.current) {
+        finishCopiedPrompt(false)
+        return
+      }
+      onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  useEffect(() => {
+    if (!copiedPrompt) {
+      return
+    }
+    setCopiedSecondsLeft(10)
+    const frame = window.requestAnimationFrame(() => setCopiedBarShrinking(true))
+    const started = Date.now()
+    const timer = window.setInterval(() => {
+      const left = Math.max(0, 10 - Math.floor((Date.now() - started) / 1000))
+      if (left === 0) {
+        window.clearInterval(timer)
+        finishCopiedPrompt(true)
+        return
+      }
+      setCopiedSecondsLeft(left)
+    }, 200)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearInterval(timer)
+    }
+  }, [copiedPrompt])
+
   const errorMessage =
     linksQuery.error instanceof ApiError ? linksQuery.error.message : 'Could not load watch links'
   const savedLinks = linksQuery.data?.filter((link) => link.source === 'saved') ?? []
+  const copiedLinks = linksQuery.data?.filter((link) => link.source === 'copied') ?? []
   const officialLinks = linksQuery.data?.filter((link) => link.source === 'official') ?? []
   const searchLinks = linksQuery.data?.filter((link) => link.source === 'search') ?? []
 
@@ -75,6 +133,13 @@ export function WatchLinksDialog({
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => {
+                if (link.source !== 'copied') {
+                  return
+                }
+                event.preventDefault()
+                askBeforeCopiedSite(link)
+              }}
               className="flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-950/40 px-4 py-3 transition hover:border-indigo-400/30 hover:bg-indigo-500/10"
             >
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-indigo-200">
@@ -178,6 +243,17 @@ export function WatchLinksDialog({
                     </summary>
                     <div className="border-t border-white/10 p-3">{renderLinks(savedLinks)}</div>
                   </details>
+                  {copiedLinks.length > 0 ? (
+                    <details open={preferredGroup === 'copied'} className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                        <span>Copied sites</span>
+                        <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                          <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </summary>
+                      <div className="border-t border-white/10 p-3">{renderLinks(copiedLinks)}</div>
+                    </details>
+                  ) : null}
                   <details open={preferredGroup === 'official'} className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
                       <span>Official links</span>
@@ -199,31 +275,80 @@ export function WatchLinksDialog({
                   </details>
                 </>
               ) : (
-                <details open className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
-                    <span>Official links</span>
-                    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
-                      <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </summary>
-                  <div className="space-y-3 border-t border-white/10 p-3">
-                    {officialLinks.length ? renderLinks(officialLinks) : (
-                      <p className="py-2 text-sm text-zinc-400">No official streaming links available.</p>
-                    )}
-                    {searchLinks.length ? (
-                      <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Search</p>
-                        {renderLinks(searchLinks)}
-                      </div>
-                    ) : null}
-                  </div>
-                </details>
+                <>
+                  {copiedLinks.length > 0 ? (
+                    <details open={preferredGroup === 'copied'} className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                        <span>Copied sites</span>
+                        <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                          <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </summary>
+                      <div className="border-t border-white/10 p-3">{renderLinks(copiedLinks)}</div>
+                    </details>
+                  ) : null}
+                  <details open className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950/25">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-100 marker:hidden">
+                      <span>Official links</span>
+                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </summary>
+                    <div className="space-y-3 border-t border-white/10 p-3">
+                      {officialLinks.length ? renderLinks(officialLinks) : (
+                        <p className="py-2 text-sm text-zinc-400">No official streaming links available.</p>
+                      )}
+                      {searchLinks.length ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Search</p>
+                          {renderLinks(searchLinks)}
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
+                </>
               )}
             </div>
           ) : linksQuery.data && linksQuery.data.length > 0 ? (
             renderLinks(linksQuery.data)
           ) : null}
         </div>
+        {copiedPrompt ? (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 backdrop-blur-[2px]">
+            <section
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="copied-site-title"
+              aria-describedby="copied-site-message"
+              className="ui-modal-panel w-full max-w-md p-6"
+            >
+              <p className={UI.eyebrow}>Copied site</p>
+              <h2 id="copied-site-title" className="mt-2 text-lg font-semibold text-zinc-50">
+                You will redirect to {copiedPrompt.url}
+              </h2>
+              <p id="copied-site-message" className="mt-2 text-sm leading-relaxed text-zinc-300">
+                This address was copied from another user. It can change, stop working, or be unsafe. It opens automatically in {copiedSecondsLeft} {copiedSecondsLeft === 1 ? 'second' : 'seconds'} if you do nothing.
+              </p>
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                <div
+                  className="h-full origin-left bg-amber-300"
+                  style={{
+                    transform: copiedBarShrinking ? 'scaleX(0)' : 'scaleX(1)',
+                    transition: copiedBarShrinking ? 'transform 10s linear' : 'none',
+                  }}
+                />
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" onClick={() => finishCopiedPrompt(false)} className={cn(UI.btn, UI.btnSecondary)}>
+                  Stay here
+                </button>
+                <button type="button" onClick={() => finishCopiedPrompt(true)} className={cn(UI.btn, UI.btnPrimary)}>
+                  Open now
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
         {onToggleWatched ? (
           <div className="mt-4 border-t border-white/10 pt-4">
             <button
