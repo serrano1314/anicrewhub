@@ -358,7 +358,8 @@ export function LibraryPage() {
               onClick={() => setTab(tab)}
               className={cn(
                 UI.pill,
-                'inline-flex items-center gap-2 whitespace-nowrap p-2.5',
+                'inline-flex items-center whitespace-nowrap p-2.5',
+                selected ? 'gap-2' : 'gap-0',
                 selected && UI.pillActive,
               )}
             >
@@ -400,6 +401,22 @@ export function LibraryPage() {
                   />
                 )}
               </svg>
+              <span
+                aria-hidden={!selected}
+                className={cn(
+                  'grid transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none',
+                  selected ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'min-w-0 overflow-hidden whitespace-nowrap transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                    selected ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0',
+                  )}
+                >
+                  {tab.label}
+                </span>
+              </span>
             </button>
           )
         })}
