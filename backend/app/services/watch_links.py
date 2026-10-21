@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.anime import Anime
 from app.models.sites import UserAnimeSite, UserSite
+from app.models.social import CopiedSite
 from app.models.user import User
 from app.schemas.watch_links import WatchLink, WatchLinkSource
 
@@ -86,6 +87,22 @@ def list_watch_links(db: Session, user: User, anilist_id: int, episode: int) -> 
             if url is None:
                 continue
             links.append(WatchLink(label=site.name, url=url, source=WatchLinkSource.saved))
+    copied_sites = db.scalars(
+        select(CopiedSite).where(CopiedSite.user_id == user.id).order_by(CopiedSite.created_at.asc())
+    ).all()
+    for copied in copied_sites:
+        url = build_saved_url(
+            title=title,
+            episode=episode,
+            anime_url=None,
+            episode_url_template=copied.episode_url_template,
+            search_url_template=copied.search_url_template,
+        )
+        if url is None and is_http_url(copied.base_url):
+            url = copied.base_url.strip()
+        if url is None:
+            continue
+        links.append(WatchLink(label=copied.name, url=url, source=WatchLinkSource.copied))
     links.extend(_official_links(anime))
 
     links.append(

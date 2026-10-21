@@ -12,6 +12,7 @@ REGISTER_BODY = {
     "email": "steven@example.com",
     "username": "steven",
     "password": "password123",
+    "terms_version": "2026-10-21",
 }
 
 
@@ -212,7 +213,7 @@ def test_library_is_private_per_user(client: TestClient, db: Session) -> None:
     client.post("/api/v1/library", json={"anilist_id": 21, "status": "watching"}, headers=owner)
     other = _auth(
         client,
-        {"email": "other@example.com", "username": "other", "password": "password123"},
+        {"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
     )
     assert client.get("/api/v1/library", headers=other).json()["results"] == []
     assert client.patch("/api/v1/library/21", json={"score": 5}, headers=other).status_code == 404

@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { NotificationBell } from './NotificationBell'
 import { PageTransition } from './PageTransition'
 import { ProfileAvatar } from './ProfileAvatar'
 import { useAuth } from '../auth/AuthProvider'
@@ -39,6 +40,17 @@ const NAV_ITEMS: NavItem[] = [
     icon: ({ active }) => (
       <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">
         <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    to: '/users',
+    label: 'Search users',
+    icon: ({ active }) => (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">
+        <path d="M16 21v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 19.5V21" strokeLinecap="round" />
+        <circle cx="10" cy="8" r="3" />
+        <path d="M20 8v6M17 11h6" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -84,7 +96,7 @@ function NavigationItems({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/4)] rounded-full bg-indigo-500/20 ring-1 ring-indigo-400/30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'pointer-events-none absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/5)] rounded-full bg-indigo-500/20 ring-1 ring-indigo-400/30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           hasActiveNav ? 'opacity-100' : 'opacity-0',
         )}
         style={{ transform: `translateX(${activeIndex * 100}%)` }}
@@ -154,7 +166,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </NavLink>
 
           <nav
-            className="relative mx-auto hidden w-64 grid-cols-4 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid md:mx-auto md:fixed md:left-1/2 md:-translate-x-1/2 md:top-16 md:z-50 md:bg-zinc-900/90 md:backdrop-blur-xl md:shadow-xl md:border-white/15"
+            className="relative mx-auto hidden w-80 grid-cols-5 items-center rounded-full border border-white/10 bg-zinc-900/50 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:grid md:mx-auto md:fixed md:left-1/2 md:-translate-x-1/2 md:top-16 md:z-50 md:bg-zinc-900/90 md:backdrop-blur-xl md:shadow-xl md:border-white/15"
             aria-label="Main"
           >
             {user ? (
@@ -163,22 +175,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Notifications"
-              title="Notifications"
-              onClick={() => {
-                void dialog.success({
-                  title: 'Notifications coming soon',
-                  message: 'Notifications are still in development and are not available yet.',
-                })
-              }}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-white/10 bg-zinc-900/70 text-zinc-400 shadow-sm shadow-black/20 transition hover:border-indigo-300/30 hover:bg-indigo-500/10 hover:text-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden="true">
-                <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            <NotificationBell />
             <button
               type="button"
               aria-label="Help"
@@ -225,7 +222,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Main"
       >
-        <div className="pointer-events-auto relative grid w-full max-w-sm grid-cols-4 items-stretch rounded-full border border-white/15 bg-zinc-900/55 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
+        <div className="pointer-events-auto relative grid w-full max-w-md grid-cols-5 items-stretch rounded-full border border-white/15 bg-zinc-900/55 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
           {user ? (
             <NavigationItems compact username={user.username} avatarId={user.avatar_id} />
           ) : null}

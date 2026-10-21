@@ -1,9 +1,10 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthRecoveryScreen } from './AuthRecoveryScreen'
+import { TermsGate } from './TermsGate'
 
 export function ProtectedRoute() {
-  const { isReady, isAuthenticated, authError } = useAuth()
+  const { isReady, isAuthenticated, authError, user } = useAuth()
 
   if (!isReady) {
     return (
@@ -70,6 +71,10 @@ export function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />
+  }
+
+  if (user && !user.terms_accepted) {
+    return <TermsGate />
   }
 
   return <Outlet />

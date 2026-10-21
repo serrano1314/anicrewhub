@@ -343,7 +343,7 @@ export function SearchPage() {
 
   return (
     <section className={UI.page}>
-      <PageHeader title="Anime Finder" description="Find anime for your collection." />
+      <PageHeader eyebrow="Search" title="Anime Finder" description="Find anime for your collection." />
       <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
         <label className="relative flex min-w-0 flex-1 items-center">
           <span className="sr-only">Search anime</span>

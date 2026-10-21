@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
+from app.core.terms import CURRENT_TERMS_VERSION, record_terms_acceptance
 from app.models.user import User
 
 
@@ -17,12 +18,18 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email.lower()))
 
 
-def register_user(db: Session, email: str, username: str, password: str) -> User:
+def register_user(db: Session, email: str, username: str, password: str, terms_version: str) -> User:
+    if terms_version != CURRENT_TERMS_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Accept the current terms to create an account",
+        )
     user = User(
         email=email.lower(),
         username=username,
         password_hash=hash_password(password),
     )
+    record_terms_acceptance(user)
     db.add(user)
     try:
         db.commit()

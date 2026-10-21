@@ -4,6 +4,7 @@ REGISTER_BODY = {
     "email": "steven@example.com",
     "username": "steven",
     "password": "password123",
+    "terms_version": "2026-10-21",
 }
 
 
@@ -104,7 +105,7 @@ def test_profile_update_rejects_taken_email_or_username(client: TestClient) -> N
     first = client.post("/api/v1/auth/register", json=REGISTER_BODY)
     client.post(
         "/api/v1/auth/register",
-        json={"email": "other@example.com", "username": "other", "password": "password123"},
+        json={"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
     )
     headers = {"Authorization": f"Bearer {first.json()['access_token']}"}
 

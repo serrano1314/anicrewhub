@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_accepted_terms
 from app.core.rate_limit import enforce_rate_limit
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.contact import ContactTicketRequest
 from app.services.contact import submit_contact_ticket
 
-router = APIRouter(prefix="/support", tags=["support"])
+router = APIRouter(prefix="/support", tags=["support"], dependencies=[Depends(require_accepted_terms)])
 
 
 @router.post("/tickets", status_code=status.HTTP_204_NO_CONTENT)

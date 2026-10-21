@@ -9,6 +9,7 @@ REGISTER_BODY = {
     "email": "steven@example.com",
     "username": "steven",
     "password": "password123",
+    "terms_version": "2026-10-21",
 }
 
 
@@ -168,7 +169,7 @@ def test_sites_are_private_per_user(client: TestClient, db: Session) -> None:
 
     other = _auth(
         client,
-        {"email": "other@example.com", "username": "other", "password": "password123"},
+        {"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
     )
     assert client.get("/api/v1/sites", headers=other).json() == []
     assert client.patch(f"/api/v1/sites/{site_id}", json={"name": "Stolen"}, headers=other).status_code == 404

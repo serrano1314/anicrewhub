@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
@@ -8,6 +10,7 @@ import { AuthFormShell } from '../components/AuthFormShell'
 import { ContactSupportFooterButton } from '../components/ContactSupportSection'
 import { ForgotPasswordUnavailableTrigger } from '../components/ForgotPasswordUnavailable'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
+import { fetchTerms } from '../api/sharing'
 import { APP_VERSION } from '../lib/config'
 import { UI, cn } from '../lib/ui'
 
@@ -22,6 +25,12 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const termsQuery = useQuery({
+    queryKey: ['terms'],
+    queryFn: fetchTerms,
+    enabled: authModal === 'signup',
+  })
   useBodyScrollLock(authModal !== null)
 
   useLayoutEffect(() => {
@@ -40,6 +49,7 @@ export function LoginPage() {
 
   function openAuthModal(mode: Exclude<AuthModal, null>) {
     setError(null)
+    setAcceptedTerms(false)
     setAuthModal(mode)
   }
 
@@ -52,7 +62,15 @@ export function LoginPage() {
       if (authModal === 'signin') {
         await login(email, password)
       } else {
-        await register(email, username, password)
+        if (!termsQuery.data) {
+          setError('Terms are still loading. Try again in a moment.')
+          return
+        }
+        if (!acceptedTerms) {
+          setError('Accept the terms to create an account.')
+          return
+        }
+        await register(email, username, password, termsQuery.data.version)
       }
     } catch (err) {
       setError(
@@ -207,6 +225,23 @@ export function LoginPage() {
                         </p>
                       ) : null}
                     </div>
+                    {isSigningUp ? (
+                      <label className="flex items-start gap-3 text-sm text-zinc-200">
+                        <input
+                          type="checkbox"
+                          checked={acceptedTerms}
+                          onChange={(event) => setAcceptedTerms(event.target.checked)}
+                          className="mt-0.5 size-4 rounded border-white/20 bg-zinc-950 text-indigo-400"
+                        />
+                        <span>
+                          I agree to the{' '}
+                          <Link to="/terms" target="_blank" className="text-indigo-300 hover:text-indigo-200">
+                            Terms
+                          </Link>
+                          {termsQuery.data ? ` (version ${termsQuery.data.version})` : ''}.
+                        </span>
+                      </label>
+                    ) : null}
                     {error ? (
                       <p
                         className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
@@ -217,7 +252,7 @@ export function LoginPage() {
                     ) : null}
                     <button
                       type="submit"
-                      disabled={submitting}
+                      disabled={submitting || (isSigningUp && (!acceptedTerms || !termsQuery.data))}
                       className={cn(UI.btn, UI.btnPrimary, 'w-full gap-2 py-3')}
                     >
                       {submitting

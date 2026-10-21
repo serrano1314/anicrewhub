@@ -4,7 +4,7 @@ from typing import TypeVar
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_accepted_terms
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.library import (
@@ -40,7 +40,7 @@ from app.services.progress import (
     set_episode_watched,
 )
 
-router = APIRouter(prefix="/library", tags=["library"])
+router = APIRouter(prefix="/library", tags=["library"], dependencies=[Depends(require_accepted_terms)])
 
 T = TypeVar("T")
 

@@ -321,7 +321,7 @@ export function LibraryPage() {
   return (
     <section className={UI.page}>
       <AnimeSpotlightCarousel />
-      <PageHeader title="My Collection" description="Track progress and jump back into any show." />
+      <PageHeader eyebrow="Collection" title="My Collection" description="Track progress and jump back into any show." />
       {collectionSummary ? (
         <div
           className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
@@ -358,8 +358,10 @@ export function LibraryPage() {
               onClick={() => setTab(tab)}
               className={cn(
                 UI.pill,
-                'inline-flex items-center whitespace-nowrap p-2.5',
-                selected ? 'gap-2' : 'gap-0',
+                'inline-flex shrink-0 items-center justify-center whitespace-nowrap',
+                selected
+                  ? 'h-10 gap-2 px-3.5 py-2.5'
+                  : 'size-10 !p-0',
                 selected && UI.pillActive,
               )}
             >

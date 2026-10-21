@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { fetchTerms } from '../api/sharing'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthField } from '../components/AuthField'
@@ -13,6 +15,8 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const termsQuery = useQuery({ queryKey: ['terms'], queryFn: fetchTerms })
 
   if (isReady && isAuthenticated) {
     return <Navigate to="/" replace />
@@ -23,7 +27,11 @@ export function RegisterPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await register(email, username, password)
+      if (!termsQuery.data || !acceptedTerms) {
+        setError('Accept the current terms to create an account.')
+        return
+      }
+      await register(email, username, password, termsQuery.data.version)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not register')
     } finally {
@@ -76,12 +84,27 @@ export function RegisterPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        <label className="flex items-start gap-3 text-sm text-zinc-200">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
+            className="mt-0.5 size-4 rounded border-white/20 bg-zinc-950 text-indigo-400"
+          />
+          <span>
+            I agree to the{' '}
+            <Link to="/terms" target="_blank" className="text-indigo-300 hover:text-indigo-200">
+              Terms
+            </Link>
+            {termsQuery.data ? ` (version ${termsQuery.data.version})` : ''}.
+          </span>
+        </label>
         {error ? (
           <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200" role="alert">
             {error}
           </p>
         ) : null}
-        <button type="submit" disabled={submitting} className={cn(UI.btn, UI.btnPrimary, 'w-full gap-2 py-3')}>
+        <button type="submit" disabled={submitting || !acceptedTerms || !termsQuery.data} className={cn(UI.btn, UI.btnPrimary, 'w-full gap-2 py-3')}>
           {submitting ? 'Creating account…' : 'Create your account'}
           {!submitting ? <span aria-hidden="true">→</span> : null}
         </button>

@@ -4,7 +4,7 @@ from typing import TypeVar
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import require_accepted_terms
 from app.db.session import get_db
 from app.models.anime import Anime
 from app.models.user import User
@@ -45,7 +45,7 @@ def _call(action: Callable[[], T]) -> T:
 def search(
     q: str = Query(min_length=1),
     page: int = Query(default=1, ge=1),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_accepted_terms),
 ) -> AnimeSearchResponse:
     query = " ".join(q.split())
     if not query:
@@ -69,7 +69,7 @@ def read_watch_links(
     anilist_id: int = Path(ge=1),
     episode_number: int = Path(ge=1, le=MAX_EPISODE_NUMBER),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_accepted_terms),
 ) -> list[WatchLink]:
     return list_watch_links(db, current_user, anilist_id, episode_number)
 
@@ -78,7 +78,7 @@ def read_watch_links(
 def read_anime(
     anilist_id: int = Path(ge=1),
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_accepted_terms),
 ) -> Anime:
     return _call(lambda: get_anime(db, anilist_id, require_details=True))
 
@@ -86,7 +86,7 @@ def read_anime(
 @router.get("/{anilist_id}/related", response_model=list[RelatedAnime])
 def read_related_anime(
     anilist_id: int = Path(ge=1),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_accepted_terms),
 ) -> list[RelatedAnime]:
     return _call(lambda: get_anilist_client().fetch_related(anilist_id))
 
@@ -95,6 +95,6 @@ def read_related_anime(
 def cache_anime(
     anilist_id: int = Path(ge=1),
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_accepted_terms),
 ) -> Anime:
     return _call(lambda: get_anime(db, anilist_id, force=True))
