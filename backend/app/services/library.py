@@ -284,5 +284,6 @@ def entry_response(entry: UserAnime, anime: Anime, watched_count: int) -> Librar
         title_romaji=anime.title_romaji,
         title_english=anime.title_english,
         cover_url=anime.cover_url,
+        banner_url=anime.details.get("banner_url") if isinstance(anime.details, dict) else None,
         format=anime.format,
     )

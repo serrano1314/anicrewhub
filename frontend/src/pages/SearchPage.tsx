@@ -103,7 +103,7 @@ export function SearchPage() {
         if (trimmed) updated.set('q', trimmed)
         return updated
       })
-    }, 300)
+    }, 1000)
     return () => clearTimeout(timer)
   }, [input, setParams])
 

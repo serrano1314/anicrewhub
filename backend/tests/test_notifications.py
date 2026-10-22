@@ -78,3 +78,24 @@ def test_follow_notifications_and_custom_types(client: TestClient, db: Session) 
     assert custom["unread_count"] == 1
     assert release["body"] == "Stored without a special renderer."
     assert release["href"] is None
+
+
+def test_clear_one_and_all_notifications(client: TestClient) -> None:
+    owner = _register(client, "clear-owner@example.com", "clearowner")
+    for name in ("clearfan1", "clearfan2"):
+        fan = _register(client, f"{name}@example.com", name)
+        assert client.post("/api/v1/users/clearowner/follow", headers=fan).status_code == 200
+    stranger = _register(client, "clear-stranger@example.com", "clearstranger")
+
+    items = client.get("/api/v1/me/notifications", headers=owner).json()["notifications"]
+    assert len(items) == 2
+
+    assert client.delete(f"/api/v1/me/notifications/{items[0]['id']}", headers=owner).status_code == 204
+    assert client.delete(f"/api/v1/me/notifications/{items[0]['id']}", headers=owner).status_code == 404
+    assert client.delete(f"/api/v1/me/notifications/{items[1]['id']}", headers=stranger).status_code == 404
+    assert len(client.get("/api/v1/me/notifications", headers=owner).json()["notifications"]) == 1
+
+    assert client.delete("/api/v1/me/notifications", headers=owner).status_code == 204
+    cleared = client.get("/api/v1/me/notifications", headers=owner).json()
+    assert cleared["notifications"] == []
+    assert cleared["unread_count"] == 0

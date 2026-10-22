@@ -10,7 +10,7 @@ from app.schemas.notifications import NotificationItem, NotificationListResponse
 
 TYPE_FOLLOW_REQUEST = "follow_request"
 TYPE_FOLLOW = "follow"
-LIST_LIMIT = 30
+LIST_LIMIT = 20
 
 
 def create_notification(
@@ -84,6 +84,19 @@ def list_notifications(db: Session, user: User) -> NotificationListResponse:
             for row in rows
         ],
     )
+
+
+def clear_notifications(db: Session, user: User) -> None:
+    db.execute(delete(Notification).where(Notification.user_id == user.id))
+    db.commit()
+
+
+def clear_notification(db: Session, user: User, notification_id: UUID) -> bool:
+    result = db.execute(
+        delete(Notification).where(Notification.id == notification_id, Notification.user_id == user.id)
+    )
+    db.commit()
+    return result.rowcount > 0
 
 
 def mark_notifications_read(db: Session, user: User) -> None:

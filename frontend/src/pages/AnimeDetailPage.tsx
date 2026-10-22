@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { BackLink } from '../components/BackLink'
 import { fetchAnime, fetchRelatedAnime } from '../api/anime'
@@ -21,6 +22,7 @@ import { ProgressMeter } from '../components/ProgressMeter'
 import { StarRating } from '../components/StarRating'
 import { WatchLinksDialog } from '../components/WatchLinksDialog'
 import { useDialog } from '../components/dialogContext'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { airingLabel, displayTitle, formatLabel } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
@@ -61,8 +63,12 @@ export function AnimeDetailPage() {
   const [focusEpisode, setFocusEpisode] = useState<number | null>(null)
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null)
   const [expandedRelatedAnimeId, setExpandedRelatedAnimeId] = useState<number | null>(null)
-  const [isCollectionControlsOpen, setIsCollectionControlsOpen] = useState(false)
+  const [isCollectionControlsOpen, setIsCollectionControlsOpen] = useState(true)
   const [isAnimeInfoOpen, setIsAnimeInfoOpen] = useState(true)
+  const [isCoverViewerOpen, setIsCoverViewerOpen] = useState(false)
+  const [coverZoom, setCoverZoom] = useState(1)
+  const [coverViewerIndex, setCoverViewerIndex] = useState(0)
+  useBodyScrollLock(isCoverViewerOpen)
 
   const animeQuery = useQuery({
     queryKey: ['anime', anilistId],
@@ -395,7 +401,12 @@ export function AnimeDetailPage() {
               <img
                 src={anime.cover_url}
                 alt={`${title} cover art`}
-                className="h-64 w-44 rounded-2xl border border-white/15 object-cover shadow-2xl shadow-black/50 sm:h-80 sm:w-56"
+                onClick={() => {
+                  setCoverZoom(1)
+                  setCoverViewerIndex(0)
+                  setIsCoverViewerOpen(true)
+                }}
+                className="h-64 w-44 cursor-zoom-in rounded-2xl border border-white/15 object-cover shadow-2xl shadow-black/50 sm:h-80 sm:w-56"
               />
             ) : (
               <div className="flex h-64 w-44 items-center justify-center rounded-2xl border border-white/10 bg-zinc-800/80 text-zinc-500 sm:h-80 sm:w-56">
@@ -877,6 +888,104 @@ export function AnimeDetailPage() {
           />
         </div>
       ) : null}
+
+      {isCoverViewerOpen && anime.cover_url
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/85 p-4 backdrop-blur-sm touch-manipulation"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${title} cover art`}
+              onClick={() => setIsCoverViewerOpen(false)}
+            >
+              <button
+                type="button"
+                aria-label="Close cover viewer"
+                title="Close"
+                onClick={() => {
+                  setCoverZoom(1)
+                  setCoverViewerIndex(0)
+                  setIsCoverViewerOpen(false)
+                }}
+                className="absolute right-4 top-4 z-30 inline-flex size-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/85 text-white shadow-lg shadow-black/40 backdrop-blur-md transition hover:border-white/45 hover:bg-zinc-800/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="m5 5 10 10M15 5 5 15" />
+                </svg>
+              </button>
+              <img
+                src={[anime.cover_url, anime.details.banner_url].filter((url): url is string => Boolean(url))[coverViewerIndex] ?? anime.cover_url}
+                alt={`${title} ${coverViewerIndex === 0 ? 'cover art' : 'banner'} enlarged`}
+                onClick={(event) => event.stopPropagation()}
+                style={{ transform: `scale(${coverZoom})` }}
+                className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] rounded-2xl object-contain shadow-2xl shadow-black/60 transition-transform"
+              />
+              <div
+                className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/20 bg-black/60 p-1 text-white backdrop-blur-sm"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  aria-label="Zoom out"
+                  title="Zoom out"
+                  disabled={coverZoom <= 1}
+                  onClick={() => setCoverZoom((zoom) => Math.max(1, zoom - 0.5))}
+                  className="inline-flex size-10 items-center justify-center rounded-full transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M5 10h10" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                  disabled={coverZoom >= 3}
+                  onClick={() => setCoverZoom((zoom) => Math.min(3, zoom + 0.5))}
+                  className="inline-flex size-10 items-center justify-center rounded-full transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M5 10h10M10 5v10" />
+                  </svg>
+                </button>
+                {anime.details.banner_url ? (
+                  <>
+                    <span aria-hidden="true" className="mx-1 h-6 w-px bg-white/20" />
+                    <button
+                      type="button"
+                      aria-label="Show previous image"
+                      title="Previous image"
+                      onClick={() => {
+                        setCoverViewerIndex((index) => (index + 1) % 2)
+                        setCoverZoom(1)
+                      }}
+                      className="inline-flex size-10 items-center justify-center rounded-full transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    >
+                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m13 4-6 6 6 6" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Show next image"
+                      title="Next image"
+                      onClick={() => {
+                        setCoverViewerIndex((index) => (index + 1) % 2)
+                        setCoverZoom(1)
+                      }}
+                      className="inline-flex size-10 items-center justify-center rounded-full transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    >
+                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m7 4 6 6-6 6" />
+                      </svg>
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </article>
   )
 }

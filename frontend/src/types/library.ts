@@ -31,6 +31,7 @@ export type LibraryEntry = {
   title_romaji: string
   title_english: string | null
   cover_url: string | null
+  banner_url: string | null
   format: string | null
 }
 

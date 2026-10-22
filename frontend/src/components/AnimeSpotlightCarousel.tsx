@@ -523,9 +523,9 @@ export function AnimeSpotlightCarousel({
                 wasSlideDraggedRef.current = false
               }}
             >
-              {anime.cover_url ? (
+              {anime.details.banner_url || anime.cover_url ? (
                 <img
-                  src={anime.cover_url}
+                  src={anime.details.banner_url || anime.cover_url || undefined}
                   alt=""
                   aria-hidden="true"
                   className="absolute inset-0 h-full w-full object-cover opacity-35 transition-transform duration-700 group-hover:scale-[1.03]"

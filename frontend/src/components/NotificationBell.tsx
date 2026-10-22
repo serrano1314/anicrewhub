@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchNotifications, markNotificationsRead } from '../api/notifications'
+import { clearAll, clearOne, fetchNotifications, markNotificationsRead } from '../api/notifications'
 import type { AppNotification } from '../types/notifications'
 
 function FollowIcon() {
@@ -120,6 +120,10 @@ export function NotificationBell() {
     }
   }
 
+  function clearNotifications(action: () => Promise<void>) {
+    void action().then(() => queryClient.invalidateQueries({ queryKey: ['notifications'] }))
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -141,8 +145,17 @@ export function NotificationBell() {
           id={panelId}
           className="absolute right-0 z-[60] mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
         >
-          <header className="border-b border-white/10 px-4 py-3">
+          <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <h2 className="text-sm font-semibold text-zinc-50">Notifications</h2>
+            {notificationsQuery.data && notificationsQuery.data.notifications.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => clearNotifications(clearAll)}
+                className="text-xs text-zinc-400 transition hover:text-zinc-100"
+              >
+                Clear all
+              </button>
+            ) : null}
           </header>
           {notificationsQuery.isPending ? <p className="px-4 py-6 text-sm text-zinc-400">Loading notifications…</p> : null}
           {notificationsQuery.isError ? <p className="px-4 py-6 text-sm text-red-300">Could not load notifications.</p> : null}
@@ -151,12 +164,12 @@ export function NotificationBell() {
           ) : null}
           {notificationsQuery.data && notificationsQuery.data.notifications.length > 0 ? (
             <ul className="max-h-96 overflow-y-auto">
-              {notificationsQuery.data.notifications.map((notification) => (
-                <li key={notification.id}>
+              {notificationsQuery.data.notifications.slice(0, 10).map((notification) => (
+                <li key={notification.id} className="flex items-start transition hover:bg-white/5">
                   <button
                     type="button"
                     onClick={() => openNotification(notification)}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-white/5"
+                    className="flex min-w-0 flex-1 items-start gap-3 py-3 pl-4 text-left"
                   >
                     <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-400/10 text-indigo-200">
                       {notificationIcon(notification.type)}
@@ -166,6 +179,17 @@ export function NotificationBell() {
                       {notification.body ? <span className="mt-0.5 block text-xs text-zinc-400">{notification.body}</span> : null}
                       <span className="mt-1 block text-[11px] text-zinc-500">{notificationTime(notification.created_at)}</span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Clear notification"
+                    title="Clear"
+                    onClick={() => clearNotifications(() => clearOne(notification.id))}
+                    className="m-2 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-zinc-100"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="m5 5 10 10M15 5 5 15" />
+                    </svg>
                   </button>
                 </li>
               ))}

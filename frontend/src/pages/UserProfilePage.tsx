@@ -179,7 +179,12 @@ export function UserProfilePage() {
           ) : null}
         </div>
         {profile.is_self ? (
+          <>
+          <span className="text-sm text-zinc-400">
+            You cannot follow yourself. lol.
+          </span>
           <Link to="/settings" className={UI.btnSecondary}>Sharing settings</Link>
+          </>
         ) : (
           <FollowActions target={profile} />
         )}
@@ -241,19 +246,19 @@ export function UserProfilePage() {
           ) : null}
           {collectionQuery.data?.results.length === 0 ? <EmptyState>Nothing in this collection view.</EmptyState> : null}
           {collectionQuery.data && collectionQuery.data.results.length > 0 ? (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {collectionQuery.data.results.map((item) => (
-                <li key={item.anilist_id}>
+                <li key={item.anilist_id} className="min-w-0">
                   <Link
                     to={`/anime/${item.anilist_id}`}
-                    className="flex gap-3 rounded-2xl border border-white/10 bg-zinc-900/50 p-3 transition hover:border-indigo-300/30"
+                    className="flex min-w-0 gap-3 rounded-2xl border border-white/10 bg-zinc-900/50 p-3 transition hover:border-indigo-300/30"
                   >
                     {item.cover_url ? (
-                      <img src={item.cover_url} alt="" className="h-20 w-14 rounded-lg object-cover" />
+                      <img src={item.cover_url} alt="" className="h-20 w-14 shrink-0 rounded-lg object-cover" />
                     ) : (
-                      <span className="h-20 w-14 rounded-lg bg-zinc-800" />
+                      <span className="h-20 w-14 shrink-0 rounded-lg bg-zinc-800" />
                     )}
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-zinc-50">{displayTitle(item)}</span>
                       <span className="mt-1 block text-xs text-zinc-400">
                         {STATUS_LABELS[item.status]}

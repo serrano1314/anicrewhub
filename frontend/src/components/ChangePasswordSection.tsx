@@ -101,7 +101,7 @@ export function ChangePasswordSection({ compact = false }: { compact?: boolean }
               <path d="M7 9V6a3 3 0 1 1 6 0v3m-3 4v2" />
             </svg>
           )}
-          {mutation.isPending ? 'Saving…' : 'Change password'}
+          <span className="pl-2">{mutation.isPending ? 'Saving…' : 'Change password'}</span>
         </button>
       </form>
     </section>

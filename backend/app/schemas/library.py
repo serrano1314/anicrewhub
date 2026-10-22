@@ -40,6 +40,7 @@ class LibraryEntryResponse(BaseModel):
     title_romaji: str
     title_english: str | None
     cover_url: str | None
+    banner_url: str | None
     format: str | None
 
 
