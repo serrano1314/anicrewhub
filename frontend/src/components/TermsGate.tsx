@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '../api/client'
 import { fetchTerms } from '../api/sharing'
