@@ -4,7 +4,6 @@ import { ApiError } from '../api/client'
 import { approveFollowRequest, fetchFollowRequests, rejectFollowRequest } from '../api/sharing'
 import { ErrorPanel, LoadingIndicator } from './PageStatus'
 import { ProfileAvatar } from './ProfileAvatar'
-import { UI } from '../lib/ui'
 
 export function FollowRequestsSection() {
   const queryClient = useQueryClient()
