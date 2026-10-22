@@ -265,7 +265,7 @@ export function SettingsPage() {
       </header>
       <SettingsSection
         title="Release notes"
-        description={`What's new in Anime Tracker ${APP_VERSION}.`}
+        description={`What's new in AnimeCrew Hub ${APP_VERSION}.`}
         accent="border-fuchsia-200/10 text-fuchsia-200"
         icon={(
           <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -283,7 +283,7 @@ export function SettingsPage() {
         {releaseNoteQuery.data ? (
           <div className="space-y-3 rounded-2xl border border-fuchsia-200/[0.08] bg-fuchsia-400/[0.025] p-4 text-sm leading-relaxed text-zinc-300 sm:p-5">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold text-zinc-100">Anime Tracker</h2>
+              <h2 className="text-sm font-semibold text-zinc-100">AnimeCrew Hub</h2>
               <span className="rounded-full border border-fuchsia-200/15 bg-fuchsia-400/[0.08] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-fuchsia-100">
                 v{releaseNoteQuery.data.version}
               </span>

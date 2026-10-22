@@ -29,7 +29,7 @@ function HomePage() {
     return (
       <AuthPageLayout>
         <main className="flex min-h-screen w-full items-center justify-center" role="status" aria-busy="true">
-          <span className="sr-only">Loading Anime Tracker…</span>
+          <span className="sr-only">Loading AnimeCrew Hub…</span>
           <div className="size-10 animate-pulse rounded-2xl bg-indigo-400/20 ring-1 ring-indigo-300/20" />
         </main>
       </AuthPageLayout>

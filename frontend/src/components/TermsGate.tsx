@@ -38,7 +38,7 @@ export function TermsGate() {
           <div className="space-y-6">
             <TermsDocumentView terms={termsQuery.data} />
             <p className="text-sm leading-relaxed text-zinc-400">
-              Accept the current terms to keep using Anime Tracker. You can still sign out or recover your account before accepting.
+              Accept the current terms to keep using AnimeCrew Hub. You can still sign out or recover your account before accepting.
             </p>
             <label className="flex items-start gap-3 text-sm text-zinc-200">
               <input

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.models.user import User
 
 CURRENT_TERMS_VERSION = "2026-10-21"
-CURRENT_TERMS_TITLE = "Anime Tracker Terms"
+CURRENT_TERMS_TITLE = "AnimeCrew Hub Terms"
 
 CURRENT_TERMS_SECTIONS: list[tuple[str, str]] = [
     (
@@ -20,11 +20,11 @@ CURRENT_TERMS_SECTIONS: list[tuple[str, str]] = [
     ),
     (
         "Copied watch sites",
-        "Watch sites are links contributed by users. Copying one saves a snapshot of that site’s name, address, and episode or search templates, including {slug}, {title}, and {episode}. Links saved for one specific anime stay on the original account. Anime Tracker does not operate those sites, does not check that they stay safe or available, and the copy warning in the app is not a promise that the service has no legal responsibility. Use them at your own caution.",
+        "Watch sites are links contributed by users. Copying one saves a snapshot of that site’s name, address, and episode or search templates, including {slug}, {title}, and {episode}. Links saved for one specific anime stay on the original account. AnimeCrew Hub does not operate those sites, does not check that they stay safe or available, and the copy warning in the app is not a promise that the service has no legal responsibility. Use them at your own caution.",
     ),
     (
         "The service",
-        "Anime Tracker is provided as available. Anime details come from AniList. These terms can be updated; continued use after a new version requires accepting that version.",
+        "AnimeCrew Hub is provided as available. Anime details come from AniList. These terms can be updated; continued use after a new version requires accepting that version.",
     ),
 ]
 

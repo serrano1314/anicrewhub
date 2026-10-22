@@ -41,9 +41,9 @@ def submit_contact_ticket(
             detail="Contact is temporarily unavailable. Try again later.",
         )
 
-    email_subject = f"[Anime Tracker] {subject}"
+    email_subject = f"[AnimeCrew Hub] {subject}"
     body = (
-        f"Support ticket from Anime Tracker\n\n"
+        f"Support ticket from AnimeCrew Hub\n\n"
         f"Username: {user.username}\n"
         f"Email: {user.email}\n"
         f"User id: {user.id}\n"
