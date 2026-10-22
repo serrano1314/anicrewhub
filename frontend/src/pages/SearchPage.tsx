@@ -1,10 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router-dom'
 import { discoverAnime, searchAnime } from '../api/anime'
 import { ApiError } from '../api/client'
-import { addToLibrary } from '../api/library'
+import { addToLibrary, fetchLibraryEntry } from '../api/library'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState, ErrorPanel, LoadingIndicator } from '../components/PageStatus'
 import { Pager } from '../components/Pager'
@@ -139,6 +139,18 @@ export function SearchPage() {
     queryFn: () => discoverAnime(recommendationKind),
     staleTime: 10 * 60 * 1000,
   })
+  const libraryEntryQueries = useQueries({
+    queries: (searchQuery.data?.results ?? []).map((anime) => ({
+      queryKey: ['library-entry', anime.anilist_id],
+      queryFn: () => fetchLibraryEntry(anime.anilist_id),
+      staleTime: 5 * 60 * 1000,
+    })),
+  })
+  const libraryEntries = new Map(
+    libraryEntryQueries
+      .map((result, index) => [searchQuery.data?.results[index]?.anilist_id, result.data] as const)
+      .filter(([anilistId, entry]) => anilistId != null && entry != null),
+  )
 
   const addMutation = useMutation({
     mutationFn: (input: { anilistId: number; status: LibraryStatus }) =>
@@ -204,6 +216,7 @@ export function SearchPage() {
   function renderAnimeCard(anime: Anime, rank?: number) {
     const title = displayTitle(anime)
     const added = addedIds.includes(anime.anilist_id)
+    const libraryEntry = libraryEntries.get(anime.anilist_id)
     const pending = addingId === anime.anilist_id
     const statusMenuOpen = openStatusId === anime.anilist_id
     const animeHref = `/anime/${anime.anilist_id}`
@@ -282,6 +295,16 @@ export function SearchPage() {
                   <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m4 10 4 4 8-8" />
                   </svg>
+                </Link>
+              ) : libraryEntry ? (
+                <Link
+                  to={animeHref}
+                  state={animeState}
+                  aria-label={`${title} is in your collection as ${libraryEntry.status}`}
+                  title={`In your collection: ${libraryEntry.status}`}
+                  className="inline-flex size-9 items-center justify-center rounded-full border border-indigo-200/25 bg-indigo-400/10 text-indigo-100 transition hover:border-indigo-200/45 hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70"
+                >
+                  <StatusIcon status={libraryEntry.status} />
                 </Link>
               ) : (
                 <button
