@@ -47,6 +47,7 @@ def get_anime(
         cached is not None
         and not force
         and (not require_details or cached.details_synced_at is not None)
+        and not _needs_cover_upgrade(cached.cover_url)
         and _is_fresh(cached, current)
     ):
         return cached
@@ -82,6 +83,10 @@ def upsert_anime(db: Session, data: AnimeData, *, synced_at: datetime | None = N
 
 def is_still_airing(airing_status: str | None) -> bool:
     return airing_status == "RELEASING"
+
+
+def _needs_cover_upgrade(cover_url: str | None) -> bool:
+    return cover_url is not None and "/cover/medium/" in cover_url
 
 
 def _is_fresh(anime: Anime, now: datetime) -> bool:

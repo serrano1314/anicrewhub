@@ -45,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: '/users',
+    end: true,
     label: 'Search users',
     icon: ({ active }) => (
       <svg viewBox="0 0 24 24" aria-hidden="true" className={`h-5 w-5 ${active ? 'stroke-indigo-200' : 'stroke-current'}`} fill="none" strokeWidth="1.8">

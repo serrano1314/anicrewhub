@@ -5,6 +5,20 @@ export async function fetchNotifications(): Promise<NotificationList> {
   return readJson<NotificationList>(await apiFetch('/api/v1/me/notifications', { method: 'GET' }))
 }
 
+export async function clearAll(): Promise<void> {
+  const response = await apiFetch('/api/v1/me/notifications', { method: 'DELETE' })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+}
+
+export async function clearOne(id: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/me/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+}
+
 export async function markNotificationsRead(): Promise<void> {
   const response = await apiFetch('/api/v1/me/notifications/read', { method: 'POST' })
   if (!response.ok) {

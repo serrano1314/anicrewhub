@@ -39,22 +39,45 @@ export function FollowRequestsSection() {
             <Link to={`/users/${encodeURIComponent(request.username)}`} className="min-w-0 flex-1 truncate text-sm text-zinc-100 hover:text-indigo-200">
               {request.username}
             </Link>
+            {/* replace button to icon-only */}
             <button
+              type="button"
+              disabled={decision.isPending}
+              onClick={() => decision.mutate({ username: request.username, approve: true })}
+              className="rounded-full bg-indigo-400/10 p-1 text-indigo-400 transition hover:bg-indigo-400/20"
+            >
+              <span className="sr-only">Approve</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m4.5 10.5 3.5 3.5 7.5-8" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              disabled={decision.isPending}
+              onClick={() => decision.mutate({ username: request.username, approve: false })}
+              className="rounded-full bg-rose-400/10 p-1 text-rose-400 transition hover:bg-rose-400/20"
+            >
+              <span className="sr-only">Reject</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m5 5 10 10M15 5 5 15" />
+              </svg>
+            </button>
+            {/* <button
               type="button"
               disabled={decision.isPending}
               onClick={() => decision.mutate({ username: request.username, approve: true })}
               className={UI.btnPrimary}
             >
               Approve
-            </button>
-            <button
+            </button> */}
+            {/* <button
               type="button"
               disabled={decision.isPending}
               onClick={() => decision.mutate({ username: request.username, approve: false })}
               className={UI.btnSecondary}
             >
               Reject
-            </button>
+            </button> */}
           </li>
         ))}
       </ul>

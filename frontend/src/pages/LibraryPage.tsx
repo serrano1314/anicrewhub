@@ -73,7 +73,7 @@ const TABS: {
 
 function LibraryStatusIcon({ status }: { status: LibraryStatus }) {
   return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5">
       {status === 'watching' ? (
         <path fill="currentColor" d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM8 6l6 4-6 4z" />
       ) : status === 'completed' ? (
@@ -754,9 +754,9 @@ export function LibraryPage() {
                 displayMode === 'wide' && 'sm:grid sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-center sm:gap-x-5',
               )}
             >
-              {entry.cover_url ? (
+              {entry.banner_url || entry.cover_url ? (
                 <img
-                  src={entry.cover_url}
+                  src={entry.banner_url || entry.cover_url || undefined}
                   alt=""
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-105 object-cover opacity-45 saturate-150 blur-[2px] transition-opacity duration-300 group-hover:opacity-60"
@@ -949,7 +949,7 @@ export function LibraryPage() {
                                     d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm-1.1 12.2-3-3 1.4-1.4 1.6 1.6 3.8-4 1.5 1.4z"
                                   />
                                 </svg>
-                                <span className="truncate">{next}</span>
+                                <span className="truncate">{"E. "+next}</span>
                               </>
                             )}
                           </button>
@@ -1010,13 +1010,13 @@ export function LibraryPage() {
                                 })
                               }
                               className={cn(
-                                'flex items-center justify-center rounded-full border transition-colors disabled:opacity-50',
+                                'flex items-center justify-center transition-colors disabled:opacity-50',
                                 displayMode === 'wide'
-                                  ? 'h-15 w-15 p-1'
+                                  ? 'h-10 w-10 p-1'
                                   : 'aspect-square w-full p-1.5',
                                 selected
-                                  ? 'border-indigo-400/40 bg-indigo-500/20 text-indigo-100'
-                                  : 'border-white/10 bg-zinc-950/40 text-zinc-400 hover:border-white/20 hover:text-zinc-100',
+                                  ? 'text-indigo-200 drop-shadow-[0_0_5px_rgba(129,140,248,0.8)]'
+                                  : 'text-zinc-400 hover:text-zinc-100',
                               )}
                             >
                               <span className={cn(displayMode === 'wide' && 'scale-90')}>

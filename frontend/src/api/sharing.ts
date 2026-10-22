@@ -86,6 +86,13 @@ export async function fetchFollowers(): Promise<FollowConnection[]> {
   return readJson<FollowConnection[]>(await apiFetch('/api/v1/me/followers', { method: 'GET' }))
 }
 
+export async function deleteFollower(username: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/me/followers/${encodeURIComponent(username)}`, { method: 'DELETE' })
+  if (!response.ok) {
+    throw await readApiError(response)
+  }
+}
+
 export async function fetchFollowing(): Promise<FollowConnection[]> {
   return readJson<FollowConnection[]>(await apiFetch('/api/v1/me/following', { method: 'GET' }))
 }

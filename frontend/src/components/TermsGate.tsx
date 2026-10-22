@@ -66,9 +66,9 @@ export function TermsGate() {
               <button type="button" onClick={() => { void logout() }} className={cn(UI.btn, UI.btnSecondary)}>
                 Log out
               </button>
-              <Link to="/forgot-password" className="text-sm text-indigo-300 hover:text-indigo-200">
+              {/* <Link to="/forgot-password" className="text-sm text-indigo-300 hover:text-indigo-200">
                 Account recovery
-              </Link>
+              </Link> */}
             </div>
           </div>
         ) : null}

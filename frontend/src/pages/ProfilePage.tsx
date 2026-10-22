@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchLibrary } from '../api/library'
-import { fetchFollowers, fetchFollowing, fetchProfile, updatePrivacy } from '../api/sharing'
+import { deleteFollower, fetchFollowers, fetchFollowing, fetchProfile, updatePrivacy } from '../api/sharing'
 import { useAuth } from '../auth/AuthProvider'
 import { useDialog } from '../components/dialogContext'
 import { FollowRequestsSection } from '../components/FollowRequestsSection'
@@ -121,6 +121,13 @@ export function ProfilePage() {
       void queryClient.invalidateQueries({ queryKey: ['me'] })
       void queryClient.invalidateQueries({ queryKey: ['public-profile'] })
       void queryClient.invalidateQueries({ queryKey: ['user-search'] })
+    },
+  })
+  const removeFollowerMutation = useMutation({
+    mutationFn: deleteFollower,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['profile-connections', 'followers'] })
+      void queryClient.invalidateQueries({ queryKey: ['public-profile', user?.username] })
     },
   })
   const avatarPresets: AvatarPreset[] = avatarPresetsQuery.data ?? []
@@ -301,8 +308,8 @@ export function ProfilePage() {
 
   const collectionStats = summary
     ? [
-        { label: 'Saved', value: summary.total, to: '/' },
-        { label: 'Watching', value: summary.watching, to: '/?status=watching' },
+        { label: 'Saved', value: summary.total, to: '/', icon: 'library' },
+        { label: 'Watching', value: summary.watching, to: '/?status=watching', icon: 'watching' },
         { label: 'Completed', value: summary.completed, to: '/?status=completed' },
         { label: 'Plan to watch', value: summary.plan_to_watch, to: '/?status=plan_to_watch' },
         { label: 'Favorites', value: summary.favorites, to: '/?favorites=true' },
@@ -539,10 +546,10 @@ export function ProfilePage() {
             ) : connectionsQuery.data && connectionsQuery.data.length > 0 ? (
               <ul className="mt-3 space-y-2">
                 {connectionsQuery.data.map((person) => (
-                  <li key={person.username}>
+                  <li key={person.username} className="flex items-center gap-2">
                     <Link
                       to={`/users/${encodeURIComponent(person.username)}`}
-                      className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-white/5"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-white/5"
                     >
                       <ProfileAvatar username={person.username} avatarId={person.avatar_id} size="sm" />
                       <span className="min-w-0 truncate text-sm text-zinc-100">{person.username}</span>
@@ -550,6 +557,28 @@ export function ProfilePage() {
                         <span className="text-xs text-zinc-500">Private</span>
                       )}
                     </Link>
+                    {connectionList === 'followers' ? (
+                      <button
+                        type="button"
+                        disabled={removeFollowerMutation.isPending}
+                        aria-label={`Remove ${person.username} as a follower`}
+                        title="Remove follower"
+                        onClick={() => removeFollowerMutation.mutate(person.username)}
+                        className={plainIconButton}
+                      >
+                        <svg
+                          viewBox="0 0 20 20"
+                          aria-hidden="true"
+                          className="size-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        >
+                          <path d="M5 5l10 10M15 5 5 15" />
+                        </svg>
+                      </button>
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -28,8 +28,11 @@ _MEDIA_SELECTION = """
     english
   }
   synonyms
+  bannerImage
   coverImage {
+    extraLarge
     large
+    medium
   }
   description(asHtml: false)
   format
@@ -341,7 +344,11 @@ def map_media(media: object) -> AnimeData | None:
     cover_url: str | None = None
     cover = media.get("coverImage")
     if isinstance(cover, dict):
-        cover_url = _as_str(cover.get("large"))
+        cover_url = (
+            _as_str(cover.get("extraLarge"))
+            or _as_str(cover.get("large"))
+            or _as_str(cover.get("medium"))
+        )
 
     links: list[ExternalLink] = []
     raw_links = media.get("externalLinks")

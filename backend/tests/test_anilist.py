@@ -37,7 +37,10 @@ def _media() -> dict[str, object]:
         "idMal": 21,
         "title": {"romaji": "One Piece", "english": "One Piece"},
         "synonyms": ["OP", "", 12],
-        "coverImage": {"large": "https://example.com/one-piece.jpg"},
+        "coverImage": {
+            "extraLarge": "https://example.com/one-piece-extra-large.jpg",
+            "large": "https://example.com/one-piece.jpg",
+        },
         "format": "TV",
         "episodes": None,
         "averageScore": 87,
@@ -79,6 +82,7 @@ def test_map_media_keeps_our_fields_and_streaming_links_only() -> None:
         "details",
     }
     assert dumped["anilist_id"] == 21
+    assert dumped["cover_url"] == "https://example.com/one-piece-extra-large.jpg"
     assert dumped["title_synonyms"] == ["OP"]
     assert dumped["description"] == "A pirate crew searches for the legendary treasure."
     assert dumped["total_episodes"] is None
@@ -185,6 +189,16 @@ def test_map_media_uses_mean_score_when_average_score_is_unavailable() -> None:
     mapped = map_media(media)
     assert mapped is not None
     assert mapped.average_score == 82
+
+
+def test_map_media_falls_back_to_available_cover_size() -> None:
+    media = _media()
+    media["coverImage"] = {"medium": "https://example.com/one-piece-medium.jpg"}
+
+    mapped = map_media(media)
+
+    assert mapped is not None
+    assert mapped.cover_url == "https://example.com/one-piece-medium.jpg"
 
 
 def test_map_media_keeps_average_score_when_mean_score_is_also_present() -> None:

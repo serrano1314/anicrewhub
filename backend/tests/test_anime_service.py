@@ -72,6 +72,28 @@ def test_get_anime_skips_fetch_when_a_finished_show_is_fresh(db: Session) -> Non
     assert client.fetch_calls == 1
 
 
+def test_get_anime_refreshes_a_cached_medium_cover(db: Session) -> None:
+    client = FakeAniList(_data(airing_status="FINISHED", total_episodes=12))
+    saved = get_anime(
+        db,
+        21,
+        client=FakeAniList(
+            _data(
+                airing_status="FINISHED",
+                total_episodes=12,
+                cover_url="https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21.png",
+            )
+        ),
+    )
+    saved.cover_url = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21.png"
+    db.commit()
+
+    refreshed = get_anime(db, 21, client=client)
+
+    assert refreshed.cover_url == "https://example.com/one-piece.jpg"
+    assert client.fetch_calls == 1
+
+
 def test_releasing_show_refreshes_even_when_the_cache_is_new(db: Session) -> None:
     client = FakeAniList(_data(total_episodes=1100))
     get_anime(db, 21, client=client)

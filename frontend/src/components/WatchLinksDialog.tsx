@@ -324,7 +324,10 @@ export function WatchLinksDialog({
             >
               <p className={UI.eyebrow}>Copied site</p>
               <h2 id="copied-site-title" className="mt-2 text-lg font-semibold text-zinc-50">
-                You will redirect to {copiedPrompt.url}
+                {"You will redirect to "}
+                {/* wrap text span */}
+                <span className="break-all text-indigo-300">{copiedPrompt.url}</span>
+                {/* {copiedPrompt.url} */}
               </h2>
               <p id="copied-site-message" className="mt-2 text-sm leading-relaxed text-zinc-300">
                 This address was copied from another user. It can change, stop working, or be unsafe. It opens automatically in {copiedSecondsLeft} {copiedSecondsLeft === 1 ? 'second' : 'seconds'} if you do nothing.

@@ -53,13 +53,19 @@ export function UserSearchPage() {
   const urlQuery = params.get('q')?.trim() ?? ''
   const [input, setInput] = useState(urlQuery)
   const trimmed = input.trim()
-  const page = trimmed === urlQuery ? parsePage(params.get('page')) : 1
+  const [debouncedTrimmed, setDebouncedTrimmed] = useState(trimmed)
+  const page = debouncedTrimmed === urlQuery ? parsePage(params.get('page')) : 1
   const searchQuery = useQuery({
-    queryKey: ['user-search', trimmed, page],
-    queryFn: () => searchUsers(trimmed, page),
-    enabled: trimmed.length > 0,
+    queryKey: ['user-search', debouncedTrimmed, page],
+    queryFn: () => searchUsers(debouncedTrimmed, page),
+    enabled: debouncedTrimmed.length > 0,
     placeholderData: keepPreviousData,
   })
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedTrimmed(trimmed), 1000)
+    return () => window.clearTimeout(timer)
+  }, [trimmed])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -71,7 +77,7 @@ export function UserSearchPage() {
         nextParams.set('q', trimmed)
       }
       setParams(nextParams, { replace: true })
-    }, 80)
+    }, 1000)
     return () => window.clearTimeout(timer)
   }, [setParams, trimmed, urlQuery])
 
@@ -118,12 +124,12 @@ export function UserSearchPage() {
         ) : null}
       </div>
 
-      {!trimmed ? (
+      {/* {!trimmed ? (
         <p className="flex items-center gap-2 text-sm text-zinc-500">
           <SearchIcon />
           Type a username
         </p>
-      ) : null}
+      ) : null} */}
 
       {showInitialLoading ? (
         <p className="text-sm text-zinc-400" role="status">Searching…</p>
