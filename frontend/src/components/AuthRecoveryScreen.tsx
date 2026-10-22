@@ -17,7 +17,7 @@ export function AuthRecoveryScreen() {
         </span>
         <h1 className="mt-4 text-lg font-semibold">Can’t restore your session</h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-          Your sign-in may still be active, but Anime Tracker couldn’t reach the account service.
+          Your sign-in may still be active, but AnimeCrew Hub couldn’t reach the account service.
           Check your connection and try again.
         </p>
         <button

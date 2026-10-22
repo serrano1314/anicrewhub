@@ -20,7 +20,7 @@ import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from '../types/li
 
 const COPY_WARNING_KEY = 'anime-tracker-site-copy-warning'
 const COPY_WARNING =
-  'These links were added by another user. They can change, stop working, or be unsafe. Anime Tracker does not run those sites and does not check that a copied address stays reliable. Copying saves the site name, address, and episode or search templates. Links saved for one specific anime stay on their account.'
+  'These links were added by another user. They can change, stop working, or be unsafe. AnimeCrew Hub does not run those sites and does not check that a copied address stays reliable. Copying saves the site name, address, and episode or search templates. Links saved for one specific anime stay on their account.'
 
 function CollectionFilterIcon({ status }: { status: LibraryStatus | 'all' }) {
   return (

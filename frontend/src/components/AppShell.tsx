@@ -163,7 +163,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/15 ring-1 ring-indigo-400/20">
               <img src="/favicon.svg" alt="" className="h-5 w-5" />
             </span>
-            <span className="brand-wordmark hidden text-[1.02rem] text-zinc-100 sm:inline">Anime Tracker</span>
+            <span className="brand-wordmark hidden text-[1.02rem] text-zinc-100 sm:inline">AnimeCrew Hub</span>
           </NavLink>
 
           <nav
@@ -216,7 +216,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </a>
         </span>
         <span aria-hidden="true" className="text-zinc-700">·</span>
-        <span>Anime Tracker v{APP_VERSION}</span>
+        <span>AnimeCrew Hub v{APP_VERSION}</span>
       </footer>
 
       <nav

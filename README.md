@@ -1,4 +1,4 @@
-# Anime Tracker
+# AnimeCrew Hub
 
 Episode progress tracker. Search comes from AniList. Your list, episode progress, and watch-site links are stored in Neon Postgres. A Chrome extension can save the episode you are watching.
 

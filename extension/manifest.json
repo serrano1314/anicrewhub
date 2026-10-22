@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Anime Tracker",
+  "name": "AnimeCrew Hub",
   "version": "0.1.0",
-  "description": "Save the episode you are watching to Anime Tracker.",
+  "description": "Save the episode you are watching to AnimeCrew Hub.",
   "permissions": ["storage", "activeTab", "scripting", "alarms"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "host_permissions": [
@@ -14,7 +14,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Anime Tracker",
+    "default_title": "AnimeCrew Hub",
     "default_popup": "popup.html"
   }
 }

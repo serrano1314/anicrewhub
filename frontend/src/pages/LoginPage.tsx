@@ -93,12 +93,13 @@ export function LoginPage() {
         <div className="flex justify-center mb-4">
         <img src="/favicon.svg" alt="" className="size-11 drop-shadow-sm" width={44} height={44} />
         </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Anime Tracker</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">AnimeCrew Hub</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-          Track your anime
+          Build your collection.
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-300 sm:text-base">
-          Create an account to track episodes, manage your watchlist, and save favorites. Sign in to access your saved anime.
+          Join the community to build your anime collection, manage your watchlist, and save favorites. Sign in to access your saved anime.
+          {/* Create an account to track episodes, manage your watchlist, and save favorites. Sign in to access your saved anime. */}
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <button
@@ -106,7 +107,7 @@ export function LoginPage() {
             onClick={() => openAuthModal('signup')}
             className={cn(UI.btn, UI.btnPrimary, 'min-h-12 rounded-full px-7 text-base shadow-lg shadow-indigo-950/40')}
           >
-            Create your free account
+            Join the crew
             <span aria-hidden="true" className="ml-1">→</span>
           </button>
           <button
@@ -172,7 +173,7 @@ export function LoginPage() {
                       </>
                     ) : (
                       <>
-                        New to Anime Tracker?{' '}
+                        New to AnimeCrew Hub?{' '}
                         <button
                           type="button"
                           onClick={() => openAuthModal('signup')}
