@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchLibrary, setEpisodeWatched, updateLibrary } from '../api/library'
 import { EmptyState, ErrorPanel } from '../components/PageStatus'
 import { AnimeSpotlightCarousel } from '../components/AnimeSpotlightCarousel'
-import { Pager } from '../components/Pager'
 import { ProgressMeter } from '../components/ProgressMeter'
 import { StarRating } from '../components/StarRating'
 import { ScrollingTitle } from '../components/ScrollingTitle'
@@ -98,14 +97,6 @@ function LibraryStatusIcon({ status }: { status: LibraryStatus }) {
   )
 }
 
-function parsePage(value: string | null): number {
-  const page = Number(value)
-  if (!Number.isInteger(page) || page < 1) {
-    return 1
-  }
-  return page
-}
-
 function DisplayModeIcon({ mode }: { mode: DisplayMode }) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4">
@@ -140,7 +131,6 @@ export function LibraryPage() {
   const [params, setParams] = useSearchParams()
   const statusParam = params.get('status')
   const status = statusParam && isLibraryStatus(statusParam) ? statusParam : undefined
-  const page = parsePage(params.get('page'))
   const favorites = params.get('favorites') === 'true'
   const sortParam = params.get('sort')
   const sort = isLibrarySort(sortParam) ? sortParam : 'updated'
@@ -153,6 +143,7 @@ export function LibraryPage() {
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
   const layoutMenuRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLUListElement>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   const [displayMode, setDisplayModeValue] = useState<DisplayMode>(getSavedDisplayMode)
   const [collectionSummary, setCollectionSummary] = useState<LibrarySummary | null>(null)
   const [openActionsId, setOpenActionsId] = useState<number | null>(null)
@@ -211,7 +202,6 @@ export function LibraryPage() {
       const updated = new URLSearchParams(params)
       if (trimmed) {
         updated.set('q', trimmed)
-        updated.delete('page')
       } else {
         updated.delete('q')
       }
@@ -229,16 +219,36 @@ export function LibraryPage() {
   }, [displayMode])
 
   const query = params.get('q')?.trim() ?? ''
-  const listQuery = useQuery({
-    queryKey: ['library', status ?? 'all', favorites, page, query, sort],
-    queryFn: () => fetchLibrary(status, page, query, favorites, sort),
+  const listQuery = useInfiniteQuery({
+    queryKey: ['library', status ?? 'all', favorites, query, sort],
+    queryFn: ({ pageParam }) => fetchLibrary(status, pageParam, query, favorites, sort),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset ?? undefined,
   })
 
   useEffect(() => {
-    if (listQuery.data?.summary) {
-      setCollectionSummary(listQuery.data.summary)
+    const summary = listQuery.data?.pages[0]?.summary
+    if (summary) {
+      setCollectionSummary(summary)
     }
-  }, [listQuery.data?.summary])
+  }, [listQuery.data?.pages])
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel || !listQuery.hasNextPage) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !listQuery.isFetchingNextPage) {
+          void listQuery.fetchNextPage()
+        }
+      },
+      { rootMargin: '480px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage])
 
   const episodeMutation = useMutation({
     mutationFn: (input: { anilistId: number; episode: number; watched: boolean }) =>
@@ -272,17 +282,6 @@ export function LibraryPage() {
       updated.set('favorites', 'true')
     } else {
       updated.delete('favorites')
-    }
-    updated.delete('page')
-    setParams(updated)
-  }
-
-  function setPage(next: number) {
-    const updated = new URLSearchParams(params)
-    if (next <= 1) {
-      updated.delete('page')
-    } else {
-      updated.set('page', String(next))
     }
     setParams(updated)
   }
@@ -581,7 +580,7 @@ export function LibraryPage() {
           </div>
         </div>
       </div>
-      {listQuery.data && listQuery.data.results.length === 0 ? (
+      {listQuery.data && listQuery.data.pages[0]?.items.length === 0 ? (
         <EmptyState>
           <div className="space-y-2">
             <p className="font-medium text-zinc-200">
@@ -694,7 +693,7 @@ export function LibraryPage() {
                 </div>
               </li>
             ))
-          : listQuery.data?.results.map((entry) => {
+          : listQuery.data?.pages.flatMap((page) => page.items).map((entry) => {
           const title = displayTitle(entry)
           const next = nextEpisodeToMark(entry.last_episode_watched, entry.total_episodes)
           const episodePending =
@@ -1035,15 +1034,19 @@ export function LibraryPage() {
           )
         })}
       </ul>
-      {listQuery.data ? (
-        <Pager
-          page={listQuery.data.page}
-          hasNext={listQuery.data.has_next_page}
-          totalCount={listQuery.data.total_count}
-          totalPages={listQuery.data.total_pages}
-          onPage={setPage}
-        />
-      ) : null}
+      <div ref={loadMoreRef} className="flex min-h-12 items-center justify-center py-4" aria-live="polite">
+        {listQuery.isFetchingNextPage ? (
+          <>
+            <span
+              aria-hidden="true"
+              className="size-5 animate-spin rounded-full border-2 border-indigo-200/25 border-t-indigo-200"
+            />
+            <span className="sr-only">Loading more saved anime…</span>
+          </>
+        ) : listQuery.data && !listQuery.hasNextPage && listQuery.data.pages[0]?.items.length ? (
+          <p className="text-sm text-zinc-500">No more saved anime.</p>
+        ) : null}
+      </div>
       {watchSelection ? (
         <WatchLinksDialog
           anilistId={watchSelection.anilistId}

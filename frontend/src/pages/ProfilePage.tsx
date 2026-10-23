@@ -100,8 +100,8 @@ export function ProfilePage() {
     staleTime: Infinity,
   })
   const collectionQuery = useQuery({
-    queryKey: ['library', 'all', false, 1, '', 'updated'],
-    queryFn: () => fetchLibrary(undefined, 1),
+    queryKey: ['library', 'all', false, 0, '', 'updated'],
+    queryFn: () => fetchLibrary(undefined, 0),
   })
   const socialQuery = useQuery({
     queryKey: ['public-profile', user?.username],
@@ -328,8 +328,6 @@ export function ProfilePage() {
           Your avatar, account details, and a snapshot of your collection.
         </p>
       </header>
-
-      <FollowRequestsSection />
 
       <section className="rounded-3xl border border-white/10 bg-zinc-900/55 p-5 sm:p-6">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
@@ -590,7 +588,7 @@ export function ProfilePage() {
           </div>
         ) : null}
       </section>
-
+      <FollowRequestsSection />
       <section aria-labelledby={`${titleId}-collection`} className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <h2 id={`${titleId}-collection`} className="text-sm font-semibold text-zinc-200">

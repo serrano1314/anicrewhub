@@ -145,9 +145,9 @@ def test_library_list_updates_an_airing_show(db: Session) -> None:
     db.commit()
     client.data = _data(total_episodes=1180)
 
-    listed = list_library(db, user, status_filter=None, page=1, client=client)
+    listed = list_library(db, user, status_filter=None, offset=0, client=client)
 
-    assert listed.results[0].total_episodes == 1180
+    assert listed.items[0].total_episodes == 1180
     assert client.fetch_calls == 2
 
 
@@ -172,9 +172,9 @@ def test_library_list_keeps_the_cache_when_anilist_fails(db: Session) -> None:
     )
     db.commit()
 
-    listed = list_library(db, user, status_filter=None, page=1, client=client)
+    listed = list_library(db, user, status_filter=None, offset=0, client=client)
 
-    assert listed.results[0].total_episodes == 1100
+    assert listed.items[0].total_episodes == 1100
     assert client.fetch_calls == 1
 
 

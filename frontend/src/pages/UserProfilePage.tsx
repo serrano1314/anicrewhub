@@ -394,7 +394,7 @@ export function UserProfilePage() {
           ) : null}
         </section>
       ) : profile.profile_public && profile.can_view_collection ? (
-        <EmptyState>Reusable watch sites are not shared.</EmptyState>
+        <EmptyState>Shared reusable watch sites are not shared.</EmptyState>
       ) : null}
     </div>
   )

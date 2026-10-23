@@ -121,7 +121,7 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
 
     listed = client.get("/api/v1/library", params={"status": "on_hold"}, headers=headers)
     assert listed.status_code == 200
-    assert listed.json()["results"][0]["watched_count"] == 11
+    assert listed.json()["items"][0]["watched_count"] == 11
     assert listed.json()["summary"] == {
         "total": 1,
         "favorites": 1,
@@ -132,7 +132,7 @@ def test_library_crud_and_progress(client: TestClient, db: Session) -> None:
         "dropped": 0,
     }
     empty = client.get("/api/v1/library", params={"status": "dropped"}, headers=headers)
-    assert empty.json()["results"] == []
+    assert empty.json()["items"] == []
 
     removed = client.delete("/api/v1/library/21", headers=headers)
     assert removed.status_code == 204
@@ -215,7 +215,7 @@ def test_library_is_private_per_user(client: TestClient, db: Session) -> None:
         client,
         {"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
     )
-    assert client.get("/api/v1/library", headers=other).json()["results"] == []
+    assert client.get("/api/v1/library", headers=other).json()["items"] == []
     assert client.patch("/api/v1/library/21", json={"score": 5}, headers=other).status_code == 404
 
 
@@ -227,25 +227,24 @@ def test_invalid_score_is_rejected(client: TestClient, db: Session) -> None:
     assert response.status_code == 422
 
 
-def test_library_page_reports_next_page(client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.services.library.LIBRARY_PAGE_SIZE", 1)
+def test_library_offset_reports_more_items(client: TestClient, db: Session) -> None:
     headers = _auth(client)
     _cache(db, anilist_id=1, total=12)
     _cache(db, anilist_id=2, total=12)
     client.post("/api/v1/library", json={"anilist_id": 1, "status": "watching"}, headers=headers)
     client.post("/api/v1/library", json={"anilist_id": 2, "status": "watching"}, headers=headers)
 
-    first = client.get("/api/v1/library", params={"page": 1}, headers=headers)
+    first = client.get("/api/v1/library", params={"offset": 0, "limit": 1}, headers=headers)
     assert first.status_code == 200
-    assert first.json()["has_next_page"] is True
+    assert first.json()["has_more"] is True
+    assert first.json()["next_offset"] == 1
     assert first.json()["total_count"] == 2
-    assert first.json()["total_pages"] == 2
-    assert len(first.json()["results"]) == 1
-    second = client.get("/api/v1/library", params={"page": 2}, headers=headers)
-    assert second.json()["has_next_page"] is False
+    assert len(first.json()["items"]) == 1
+    second = client.get("/api/v1/library", params={"offset": 1, "limit": 1}, headers=headers)
+    assert second.json()["has_more"] is False
+    assert second.json()["next_offset"] is None
     assert second.json()["total_count"] == 2
-    assert second.json()["total_pages"] == 2
-    assert len(second.json()["results"]) == 1
+    assert len(second.json()["items"]) == 1
 
 
 def test_favorites_are_filtered_and_sorted_before_other_entries(
@@ -269,14 +268,38 @@ def test_favorites_are_filtered_and_sorted_before_other_entries(
     entries_by_id[3].updated_at = datetime(2026, 3, 1, tzinfo=timezone.utc)
     db.commit()
 
-    all_entries = client.get("/api/v1/library", headers=headers).json()["results"]
+    all_entries = client.get("/api/v1/library", headers=headers).json()["items"]
     assert [entry["anilist_id"] for entry in all_entries] == [2, 1, 3]
     favorites = client.get(
         "/api/v1/library",
         params={"favorites": "true"},
         headers=headers,
-    ).json()["results"]
+    ).json()["items"]
     assert [entry["anilist_id"] for entry in favorites] == [2, 1]
+
+
+def test_all_library_items_put_dropped_entries_last(client: TestClient, db: Session) -> None:
+    headers = _auth(client)
+    for anilist_id in (1, 2, 3):
+        _cache(db, anilist_id=anilist_id, total=12)
+        client.post(
+            "/api/v1/library",
+            json={
+                "anilist_id": anilist_id,
+                "status": "dropped" if anilist_id == 1 else "watching",
+            },
+            headers=headers,
+        )
+
+    entries = client.get("/api/v1/library", headers=headers).json()["items"]
+    assert [entry["anilist_id"] for entry in entries] == [2, 3, 1]
+
+    dropped = client.get(
+        "/api/v1/library",
+        params={"status": "dropped"},
+        headers=headers,
+    ).json()["items"]
+    assert [entry["anilist_id"] for entry in dropped] == [1]
 
 
 def test_library_supports_title_and_rating_sort(client: TestClient, db: Session) -> None:
@@ -301,11 +324,11 @@ def test_library_supports_title_and_rating_sort(client: TestClient, db: Session)
         "/api/v1/library",
         params={"sort": "title"},
         headers=headers,
-    ).json()["results"]
+    ).json()["items"]
     assert [entry["anilist_id"] for entry in title_order] == [2, 1]
     rating_order = client.get(
         "/api/v1/library",
         params={"sort": "rating"},
         headers=headers,
-    ).json()["results"]
+    ).json()["items"]
     assert [entry["anilist_id"] for entry in rating_order] == [2, 1]

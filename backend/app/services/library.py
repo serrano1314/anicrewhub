@@ -23,7 +23,7 @@ from app.services.episode_progress import (
     insert_episode_progress,
 )
 
-LIBRARY_PAGE_SIZE = 24
+LIBRARY_PAGE_SIZE = 12
 
 
 def list_library(
@@ -31,7 +31,8 @@ def list_library(
     user: User,
     *,
     status_filter: LibraryStatus | None,
-    page: int,
+    offset: int = 0,
+    limit: int = LIBRARY_PAGE_SIZE,
     query: str | None = None,
     favorite_only: bool = False,
     sort_by: LibrarySort = LibrarySort.updated,
@@ -89,10 +90,16 @@ def list_library(
         )
     else:
         sort_order = (UserAnime.updated_at.desc(), Anime.anilist_id.asc())
+    ordering = (UserAnime.is_favorite.desc(), *sort_order)
+    if status_filter is None and not favorite_only:
+        ordering = (
+            case((UserAnime.status == LibraryStatus.dropped.value, 1), else_=0).asc(),
+            *ordering,
+        )
     rows = db.execute(
-        statement.order_by(UserAnime.is_favorite.desc(), *sort_order)
-        .offset((page - 1) * LIBRARY_PAGE_SIZE)
-        .limit(LIBRARY_PAGE_SIZE + 1)
+        statement.order_by(*ordering)
+        .offset(offset)
+        .limit(limit + 1)
     ).all()
     total_count = db.scalar(
         select(func.count()).select_from(UserAnime).where(UserAnime.user_id == user.id)
@@ -116,13 +123,18 @@ def list_library(
         .join(Anime, Anime.id == UserAnime.anime_id)
         .where(*filters)
     ) or 0
-    has_next_page = len(rows) > LIBRARY_PAGE_SIZE
-    visible = rows[:LIBRARY_PAGE_SIZE]
+    has_more = len(rows) > limit
+    visible = rows[:limit]
+    next_offset = offset + limit if has_more else None
+    items = [
+        entry_response(entry, _refresh_if_airing(db, anime, client), int(watched_count))
+        for entry, anime, watched_count in visible
+    ]
     return LibraryListResponse(
-        page=page,
-        has_next_page=has_next_page,
+        items=items,
+        has_more=has_more,
+        next_offset=next_offset,
         total_count=total_count,
-        total_pages=max(1, (filtered_count + LIBRARY_PAGE_SIZE - 1) // LIBRARY_PAGE_SIZE),
         summary=LibrarySummaryResponse(
             total=int(summary_values[0]),
             favorites=int(summary_values[1]),
@@ -132,10 +144,6 @@ def list_library(
             on_hold=int(summary_values[5]),
             dropped=int(summary_values[6]),
         ),
-        results=[
-            entry_response(entry, _refresh_if_airing(db, anime, client), int(watched_count))
-            for entry, anime, watched_count in visible
-        ],
     )
 
 

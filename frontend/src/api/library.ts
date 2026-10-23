@@ -11,12 +11,12 @@ import { apiFetch, readApiError, readJson } from './client'
 
 export function fetchLibrary(
   status: LibraryStatus | undefined,
-  page: number,
+  offset: number,
   query: string = '',
   favorites: boolean = false,
   sort: LibrarySort = 'updated',
 ): Promise<LibraryListResponse> {
-  const params = new URLSearchParams({ page: String(page), sort })
+  const params = new URLSearchParams({ offset: String(offset), limit: '12', sort })
   if (status) {
     params.set('status', status)
   }
@@ -26,9 +26,23 @@ export function fetchLibrary(
   if (favorites) {
     params.set('favorites', 'true')
   }
-  return apiFetch(`/api/v1/library?${params.toString()}`).then((response) =>
-    readJson<LibraryListResponse>(response),
-  )
+  return apiFetch(`/api/v1/library?${params.toString()}`)
+    .then((response) =>
+      readJson<{
+        items: LibraryEntry[]
+        has_more: boolean
+        next_offset: number | null
+        total_count: number
+        summary: LibraryListResponse['summary']
+      }>(response),
+    )
+    .then((data) => ({
+      items: data.items,
+      hasMore: data.has_more,
+      nextOffset: data.next_offset,
+      totalCount: data.total_count,
+      summary: data.summary,
+    }))
 }
 
 export function addToLibrary(anilistId: number, status: LibraryStatus): Promise<LibraryEntry> {
