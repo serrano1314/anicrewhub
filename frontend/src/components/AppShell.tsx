@@ -157,7 +157,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const dialog = useDialog()
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50">
+    <div className="min-h-screen bg-[#0a0d16] text-zinc-50">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_55%)]" />
       <header className="relative sticky top-0 z-40 border-b border-white/5 bg-zinc-950/75 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:gap-4">
