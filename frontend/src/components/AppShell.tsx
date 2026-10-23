@@ -110,7 +110,7 @@ function NavigationItems({
           aria-label={item.label}
           title={item.label}
           onClick={(event) => {
-            if (item.to === '/' && pathname === '/') {
+            if ((item.to === '/' && pathname === '/') || (item.to === '/search' && pathname === '/search')) {
               event.preventDefault()
               window.scrollTo({ top: 0, behavior: 'smooth' })
             }
