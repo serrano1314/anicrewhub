@@ -14,15 +14,23 @@ import { nextEpisodeToMark } from '../lib/episodes'
 import { PageHeader } from '../components/PageHeader'
 import { backFromLibrary } from '../lib/navigation'
 import { UI, cn } from '../lib/ui'
+import { useToast } from '../components/toastContext'
 import {
   STATUS_LABELS,
   isLibraryStatus,
+  type LibraryEntry,
+  type LibraryListResponse,
   type LibrarySort,
   type LibrarySummary,
   type LibraryStatus,
+  type WatchedEpisodes,
 } from '../types/library'
 
 type DisplayMode = 'compact' | 'normal' | 'wide'
+type LibraryInfiniteData = {
+  pages: LibraryListResponse[]
+  pageParams: unknown[]
+}
 
 const DISPLAY_MODES: { id: DisplayMode; label: string }[] = [
   { id: 'compact', label: 'Compact' },
@@ -127,6 +135,7 @@ function DisplayModeIcon({ mode }: { mode: DisplayMode }) {
 }
 
 export function LibraryPage() {
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const statusParam = params.get('status')
@@ -253,10 +262,69 @@ export function LibraryPage() {
   const episodeMutation = useMutation({
     mutationFn: (input: { anilistId: number; episode: number; watched: boolean }) =>
       setEpisodeWatched(input.anilistId, input.episode, input.watched),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['library'] })
-      await queryClient.invalidateQueries({ queryKey: ['episodes'] })
-      await queryClient.invalidateQueries({ queryKey: ['library-entry'] })
+    onSuccess: (_data, input) => {
+      showToast(input.watched ? `Episode ${input.episode} marked watched` : `Episode ${input.episode} removed`)
+    },
+    onMutate: async ({ anilistId, episode, watched }) => {
+      await queryClient.cancelQueries({ queryKey: ['library'] })
+      await queryClient.cancelQueries({ queryKey: ['episodes', anilistId] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousLibrary = queryClient.getQueriesData<LibraryInfiniteData>({ queryKey: ['library'] })
+      const previousEpisodes = queryClient.getQueryData<WatchedEpisodes>(['episodes', anilistId])
+      const previousEntry = queryClient.getQueryData<LibraryEntry>(['library-entry', anilistId])
+      const updateProgress = (entry: LibraryEntry) => ({
+        ...entry,
+        watched_count: Math.max(0, entry.watched_count + (watched ? 1 : -1)),
+        last_episode_watched: watched ? episode : Math.max(0, episode - 1),
+      })
+
+      queryClient.setQueriesData<LibraryInfiniteData>({ queryKey: ['library'] }, (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                items: page.items.map((entry) =>
+                  entry.anilist_id === anilistId ? updateProgress(entry) : entry,
+                ),
+              })),
+            }
+          : current,
+      )
+      if (previousEpisodes) {
+        const episodes = new Set(previousEpisodes.episodes)
+        if (watched) {
+          episodes.add(episode)
+        } else {
+          episodes.delete(episode)
+        }
+        queryClient.setQueryData<WatchedEpisodes>(['episodes', anilistId], {
+          ...previousEpisodes,
+          episodes: [...episodes].sort((left, right) => left - right),
+        })
+      }
+      if (previousEntry) {
+        queryClient.setQueryData<LibraryEntry>(['library-entry', anilistId], updateProgress(previousEntry))
+      }
+      return { previousLibrary, previousEpisodes, previousEntry }
+    },
+    onError: (_error, { anilistId }, context) => {
+      context?.previousLibrary.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
+      if (context?.previousEpisodes) {
+        queryClient.setQueryData(['episodes', anilistId], context.previousEpisodes)
+      }
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_data, _error, { anilistId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['episodes', anilistId] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
@@ -265,9 +333,63 @@ export function LibraryPage() {
       anilistId: number
       changes: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean }
     }) => updateLibrary(input.anilistId, input.changes),
-    onSuccess: async (_entry, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['library'] })
-      await queryClient.invalidateQueries({ queryKey: ['library-entry', input.anilistId] })
+    onSuccess: (_entry, { changes }) => {
+      if (changes.is_favorite !== undefined) {
+        showToast(changes.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      } else if (changes.score !== undefined) {
+        showToast(changes.score === null ? 'Rating cleared' : 'Rating updated')
+      } else if (changes.status !== undefined) {
+        showToast(`Status changed to ${STATUS_LABELS[changes.status]}`)
+      }
+    },
+    onMutate: async ({ anilistId, changes }) => {
+      await queryClient.cancelQueries({ queryKey: ['library'] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousLibrary = queryClient.getQueriesData<LibraryInfiniteData>({ queryKey: ['library'] })
+      const previousEntry = queryClient.getQueryData<LibraryEntry>(['library-entry', anilistId])
+
+      queryClient.setQueriesData<LibraryInfiniteData>({ queryKey: ['library'] }, (current) => {
+        if (!current) {
+          return current
+        }
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) =>
+              item.anilist_id === anilistId ? { ...item, ...changes } : item,
+            ),
+            summary:
+              changes.is_favorite === undefined
+                ? page.summary
+                : {
+                    ...page.summary,
+                    favorites: page.summary.favorites + (changes.is_favorite ? 1 : -1),
+                  },
+          })),
+        }
+      })
+      if (previousEntry) {
+        queryClient.setQueryData<LibraryEntry>(['library-entry', anilistId], {
+          ...previousEntry,
+          ...changes,
+        })
+      }
+      return { previousLibrary, previousEntry }
+    },
+    onError: (_error, { anilistId }, context) => {
+      context?.previousLibrary.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_entry, _error, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', input.anilistId] }),
+      ])
     },
   })
 
@@ -1044,7 +1166,7 @@ export function LibraryPage() {
             <span className="sr-only">Loading more saved anime…</span>
           </>
         ) : listQuery.data && !listQuery.hasNextPage && listQuery.data.pages[0]?.items.length ? (
-          <p className="text-sm text-zinc-500">total {collectionSummary?.total ?? 0} saved anime.</p>
+          <p className="text-sm text-zinc-500">No more results below.</p>
         ) : null}
       </div>
       {watchSelection ? (

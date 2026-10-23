@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell'
 import { AuthPageLayout } from './components/AuthPageLayout'
 import { DialogProvider } from './components/DialogProvider'
 import { HomepageShadowLoader } from './components/HomepageShadowLoader'
+import { ToastProvider } from './components/toastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TermsGate } from './components/TermsGate'
 import { AuthRecoveryScreen } from './components/AuthRecoveryScreen'
@@ -58,28 +59,30 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <DialogProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route element={<AuthPageLayout />}>
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-              </Route>
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppShell />}>
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/users" element={<UserSearchPage />} />
-                  <Route path="/users/:username" element={<UserProfilePage />} />
-                  <Route path="/anime/:anilistId" element={<AnimeDetailPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="*" element={<NotFoundPage />} />
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route element={<AuthPageLayout />}>
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Route>
-              </Route>
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </BrowserRouter>
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppShell />}>
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/users" element={<UserSearchPage />} />
+                    <Route path="/users/:username" element={<UserProfilePage />} />
+                    <Route path="/anime/:anilistId" element={<AnimeDetailPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Route>
+                </Route>
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
         </DialogProvider>
       </AuthProvider>
     </QueryClientProvider>

@@ -27,6 +27,7 @@ import { airingLabel, displayTitle, formatLabel } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
 import { cn } from '../lib/ui'
+import { useToast } from '../components/toastContext'
 import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from '../types/library'
 
 function StatusIcon({ status }: { status: LibraryStatus }) {
@@ -52,6 +53,7 @@ function errorText(error: unknown, fallback: string): string {
 }
 
 export function AnimeDetailPage() {
+  const { showToast } = useToast()
   const params = useParams()
   const rawId = Number(params.anilistId)
   const anilistId = Number.isInteger(rawId) && rawId >= 1 ? rawId : null
@@ -127,9 +129,37 @@ export function AnimeDetailPage() {
   const updateMutation = useMutation({
     mutationFn: (body: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean }) =>
       updateLibrary(anilistId as number, body),
-    onSuccess: async () => {
+    onSuccess: (entry, changes) => {
+      if (changes.is_favorite !== undefined) {
+        showToast(changes.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      } else if (changes.score !== undefined) {
+        showToast(changes.score === null ? 'Rating cleared' : 'Rating updated')
+      } else if (changes.status !== undefined) {
+        showToast(`Status changed to ${STATUS_LABELS[entry.status]}`)
+      }
+    },
+    onMutate: async (changes) => {
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousEntry = queryClient.getQueryData<typeof savedEntry>(['library-entry', anilistId])
+      if (previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], {
+          ...previousEntry,
+          ...changes,
+        })
+      }
+      return { previousEntry }
+    },
+    onError: (_error, _changes, context) => {
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async () => {
       setIsStatusMenuOpen(false)
-      await refreshProgress()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
@@ -154,9 +184,50 @@ export function AnimeDetailPage() {
   const episodeMutation = useMutation({
     mutationFn: (input: { episode: number; watched: boolean }) =>
       setEpisodeWatched(anilistId as number, input.episode, input.watched),
-    onSuccess: async (_data, input) => {
+    onSuccess: (_data, input) => {
+      showToast(input.watched ? `Episode ${input.episode} marked watched` : `Episode ${input.episode} removed`)
+    },
+    onMutate: async ({ episode, watched }) => {
+      await queryClient.cancelQueries({ queryKey: ['episodes', anilistId] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousEpisodes = queryClient.getQueryData<typeof episodesQuery.data>(['episodes', anilistId])
+      const previousEntry = queryClient.getQueryData<typeof savedEntry>(['library-entry', anilistId])
+      if (previousEpisodes) {
+        const nextEpisodes = new Set(previousEpisodes.episodes)
+        if (watched) {
+          nextEpisodes.add(episode)
+        } else {
+          nextEpisodes.delete(episode)
+        }
+        queryClient.setQueryData(['episodes', anilistId], {
+          ...previousEpisodes,
+          episodes: [...nextEpisodes].sort((left, right) => left - right),
+        })
+      }
+      if (previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], {
+          ...previousEntry,
+          watched_count: Math.max(0, previousEntry.watched_count + (watched ? 1 : -1)),
+          last_episode_watched: watched ? episode : Math.max(0, episode - 1),
+        })
+      }
+      return { previousEpisodes, previousEntry }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previousEpisodes) {
+        queryClient.setQueryData(['episodes', anilistId], context.previousEpisodes)
+      }
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_data, _error, input) => {
       setFocusEpisode(input.episode)
-      await refreshProgress()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['episodes', anilistId] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
