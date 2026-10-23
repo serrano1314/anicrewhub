@@ -17,6 +17,7 @@ class User(Base):
     avatar_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     profile_public: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
     share_collection: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
+    share_favorites_only: Mapped[bool] = mapped_column(default=False, server_default="false", nullable=False)
     share_watch_sites: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
     terms_accepted_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

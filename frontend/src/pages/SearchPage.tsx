@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -7,7 +7,6 @@ import { ApiError } from '../api/client'
 import { addToLibrary, fetchLibraryEntry } from '../api/library'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState, ErrorPanel, LoadingIndicator } from '../components/PageStatus'
-import { Pager } from '../components/Pager'
 import { ScrollingTitle } from '../components/ScrollingTitle'
 import { displayTitle, metaLine } from '../lib/display'
 import { episodeCountLabel } from '../lib/episodes'
@@ -44,14 +43,6 @@ function StatusIcon({ status }: { status: LibraryStatus }) {
   )
 }
 
-function parsePage(value: string | null): number {
-  const page = Number(value)
-  if (!Number.isInteger(page) || page < 1) {
-    return 1
-  }
-  return page
-}
-
 function getSavedSearchInput(): string {
   try {
     return window.sessionStorage.getItem(SEARCH_INPUT_STORAGE_KEY) ?? ''
@@ -65,12 +56,12 @@ export function SearchPage() {
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const query = params.get('q')?.trim() ?? ''
-  const page = parsePage(params.get('page'))
   const [input, setInput] = useState(() => query || getSavedSearchInput())
   const previousQueryRef = useRef(query)
   const [recommendationKind, setRecommendationKind] = useState<'trending' | 'latest'>('trending')
   const addButtonRef = useRef<HTMLButtonElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   const [statusMenuPosition, setStatusMenuPosition] = useState<{ top: number; left: number } | null>(null)
 
   useEffect(() => {
@@ -129,9 +120,11 @@ export function SearchPage() {
     }
   }, [openStatusId])
 
-  const searchQuery = useQuery({
-    queryKey: ['search', query, page],
-    queryFn: () => searchAnime(query, page),
+  const searchQuery = useInfiniteQuery({
+    queryKey: ['search', query],
+    queryFn: ({ pageParam }) => searchAnime(query, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.has_next_page ? lastPage.page + 1 : undefined),
     enabled: query.length > 0,
   })
   const recommendationsQuery = useQuery({
@@ -140,7 +133,7 @@ export function SearchPage() {
     staleTime: 10 * 60 * 1000,
   })
   const libraryEntryQueries = useQueries({
-    queries: (searchQuery.data?.results ?? []).map((anime) => ({
+    queries: (searchQuery.data?.pages.flatMap((page) => page.results) ?? []).map((anime) => ({
       queryKey: ['library-entry', anime.anilist_id],
       queryFn: () => fetchLibraryEntry(anime.anilist_id),
       staleTime: 5 * 60 * 1000,
@@ -148,9 +141,23 @@ export function SearchPage() {
   })
   const libraryEntries = new Map(
     libraryEntryQueries
-      .map((result, index) => [searchQuery.data?.results[index]?.anilist_id, result.data] as const)
+      .map((result, index) => [searchQuery.data?.pages.flatMap((page) => page.results)[index]?.anilist_id, result.data] as const)
       .filter(([anilistId, entry]) => anilistId != null && entry != null),
   )
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel || !searchQuery.hasNextPage || searchQuery.isFetchingNextPage) {
+      return
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        void searchQuery.fetchNextPage()
+      }
+    }, { rootMargin: '480px 0px' })
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [searchQuery.fetchNextPage, searchQuery.hasNextPage, searchQuery.isFetchingNextPage])
 
   const addMutation = useMutation({
     mutationFn: (input: { anilistId: number; status: LibraryStatus }) =>
@@ -172,16 +179,6 @@ export function SearchPage() {
     const updated = new URLSearchParams()
     if (next) {
       updated.set('q', next)
-    }
-    setParams(updated)
-  }
-
-  function setPage(next: number) {
-    const updated = new URLSearchParams(params)
-    if (next <= 1) {
-      updated.delete('page')
-    } else {
-      updated.set('page', String(next))
     }
     setParams(updated)
   }
@@ -430,18 +427,18 @@ export function SearchPage() {
               }}
             />
           ) : null}
-          {searchQuery.data && searchQuery.data.results.length === 0 ? (
+          {(searchQuery.data?.pages[0]?.results.length ?? 0) === 0 ? (
             <EmptyState>No matches for “{query}”. Try another title or spelling.</EmptyState>
           ) : null}
           <ul className="search-results grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {searchQuery.data?.results.map((anime) => renderAnimeCard(anime))}
+            {searchQuery.data?.pages.flatMap((page) => page.results).map((anime) => renderAnimeCard(anime))}
           </ul>
-          {searchQuery.data ? (
-            <Pager
-              page={searchQuery.data.page}
-              hasNext={searchQuery.data.has_next_page}
-              onPage={setPage}
-            />
+          {searchQuery.hasNextPage ? (
+            <div ref={loadMoreRef} className="flex justify-center py-4" aria-live="polite">
+              {searchQuery.isFetchingNextPage ? <LoadingIndicator label="Loading more anime…" /> : null}
+            </div>
+          ) : searchQuery.data && searchQuery.data.pages.some((page) => page.results.length > 0) ? (
+            <p className="py-4 text-center text-sm text-zinc-500" role="status">No more anime.</p>
           ) : null}
         </>
       ) : (

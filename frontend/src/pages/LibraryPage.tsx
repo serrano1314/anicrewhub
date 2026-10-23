@@ -1044,7 +1044,7 @@ export function LibraryPage() {
             <span className="sr-only">Loading more saved anime…</span>
           </>
         ) : listQuery.data && !listQuery.hasNextPage && listQuery.data.pages[0]?.items.length ? (
-          <p className="text-sm text-zinc-500">No more saved anime.</p>
+          <p className="text-sm text-zinc-500">total {collectionSummary?.total ?? 0} saved anime.</p>
         ) : null}
       </div>
       {watchSelection ? (

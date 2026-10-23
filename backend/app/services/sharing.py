@@ -100,6 +100,7 @@ def read_privacy(user: User) -> PrivacyResponse:
     return PrivacyResponse(
         profile_public=user.profile_public,
         share_collection=user.share_collection,
+        share_favorites_only=user.share_favorites_only,
         share_watch_sites=user.share_watch_sites,
     )
 
@@ -110,12 +111,15 @@ def update_privacy(
     *,
     profile_public: bool | None,
     share_collection: bool | None,
+    share_favorites_only: bool | None,
     share_watch_sites: bool | None,
 ) -> PrivacyResponse:
     if profile_public is not None:
         user.profile_public = profile_public
     if share_collection is not None:
         user.share_collection = share_collection
+    if share_favorites_only is not None:
+        user.share_favorites_only = share_favorites_only
     if share_watch_sites is not None:
         user.share_watch_sites = share_watch_sites
     db.commit()
@@ -355,6 +359,8 @@ def read_shared_collection(
     filters = [UserAnime.user_id == owner.id]
     if status_filter is not None:
         filters.append(UserAnime.status == status_filter.value)
+    if owner.share_favorites_only and viewer.id != owner.id:
+        filters.append(UserAnime.is_favorite.is_(True))
     rows = db.execute(
         select(UserAnime, Anime, func.coalesce(watched_counts.c.watched_count, 0))
         .join(Anime, Anime.id == UserAnime.anime_id)

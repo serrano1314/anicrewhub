@@ -93,6 +93,7 @@ def patch_privacy(
         current_user,
         profile_public=body.profile_public,
         share_collection=body.share_collection,
+        share_favorites_only=body.share_favorites_only,
         share_watch_sites=body.share_watch_sites,
     )
 

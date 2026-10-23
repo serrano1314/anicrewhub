@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { AppShell } from './components/AppShell'
 import { AuthPageLayout } from './components/AuthPageLayout'
 import { DialogProvider } from './components/DialogProvider'
+import { HomepageShadowLoader } from './components/HomepageShadowLoader'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TermsGate } from './components/TermsGate'
 import { AuthRecoveryScreen } from './components/AuthRecoveryScreen'
@@ -26,14 +27,7 @@ function HomePage() {
   const { isReady, isAuthenticated, authError, user } = useAuth()
 
   if (!isReady) {
-    return (
-      <AuthPageLayout>
-        <main className="flex min-h-screen w-full items-center justify-center" role="status" aria-busy="true">
-          <span className="sr-only">Loading AnimeCrew Hub…</span>
-          <div className="size-10 animate-pulse rounded-2xl bg-indigo-400/20 ring-1 ring-indigo-300/20" />
-        </main>
-      </AuthPageLayout>
-    )
+    return <HomepageShadowLoader />
   }
 
   if (authError) {

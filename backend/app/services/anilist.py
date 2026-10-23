@@ -16,7 +16,7 @@ from app.schemas.anime import (
 )
 
 ANILIST_URL = "https://graphql.anilist.co"
-SEARCH_PER_PAGE = 20
+SEARCH_PER_PAGE = 12
 MAX_ATTEMPTS = 3
 MAX_RETRY_AFTER_SECONDS = 30.0
 
