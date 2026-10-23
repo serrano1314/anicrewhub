@@ -55,12 +55,11 @@ class LibrarySummaryResponse(BaseModel):
 
 
 class LibraryListResponse(BaseModel):
-    page: int
-    has_next_page: bool
+    items: list[LibraryEntryResponse]
+    has_more: bool
+    next_offset: int | None
     total_count: int
-    total_pages: int
     summary: LibrarySummaryResponse
-    results: list[LibraryEntryResponse]
 
 
 class EpisodeUpdateRequest(BaseModel):

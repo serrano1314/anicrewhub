@@ -23,12 +23,14 @@ class TermsAcceptRequest(BaseModel):
 class PrivacyResponse(BaseModel):
     profile_public: bool
     share_collection: bool
+    share_favorites_only: bool
     share_watch_sites: bool
 
 
 class PrivacyUpdateRequest(BaseModel):
     profile_public: bool | None = None
     share_collection: bool | None = None
+    share_favorites_only: bool | None = None
     share_watch_sites: bool | None = None
 
 

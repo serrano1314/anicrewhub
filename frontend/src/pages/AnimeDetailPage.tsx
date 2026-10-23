@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { BackLink } from '../components/BackLink'
-import { fetchAnime, fetchRelatedAnime } from '../api/anime'
+import { fetchAnime, fetchAnimeReviews, fetchRelatedAnime } from '../api/anime'
 import { ApiError } from '../api/client'
 import {
   addToLibrary,
@@ -16,6 +16,7 @@ import {
   updateLibrary,
 } from '../api/library'
 import { AnimeSitesSection } from '../components/AnimeSitesSection'
+import { SectionIcon } from '../components/SectionIcon'
 import { ErrorPanel, LoadingIndicator } from '../components/PageStatus'
 import { EpisodeGrid } from '../components/EpisodeGrid'
 import { ProgressMeter } from '../components/ProgressMeter'
@@ -27,7 +28,9 @@ import { airingLabel, displayTitle, formatLabel } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
 import { cn } from '../lib/ui'
+import { useToast } from '../components/toastContext'
 import { LIBRARY_STATUSES, STATUS_LABELS, type LibraryStatus } from '../types/library'
+import type { AnimeReviewSort } from '../types/anime'
 
 function StatusIcon({ status }: { status: LibraryStatus }) {
   return (
@@ -51,7 +54,40 @@ function errorText(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback
 }
 
+function formatReviewBody(body: string): string {
+  return body
+    .replace(/!!([\s\S]*?)!!/g, '<span data-spoiler="true">$1</span>')
+    .replace(/~!\s*([\s\S]*?)\s*!~/g, '<span data-spoiler="true">$1</span>')
+    .replace(
+      /~~~\s*img(\d+)\((https?:\/\/[^)\s]+)\)\s*~~~/gi,
+      '<img src="$2" alt="" width="$1" />',
+    )
+    .replace(
+      /img(\d+)\((https?:\/\/[^)\s]+)\)/gi,
+      '<img src="$2" alt="" width="$1" />',
+    )
+    .replace(
+      /~~~\s*img\((https?:\/\/[^)\s]+)\)\s*~~~/gi,
+      '<img src="$1" alt="" />',
+    )
+    .replace(
+      /img\((https?:\/\/[^)\s]+)\)/gi,
+      '<img src="$1" alt="" />',
+    )
+    .replace(/^#{1,6}\s+(.+)$/gm, '<h3>$1</h3>')
+    .replace(/~~~([\s\S]*?)~~~/g, '<div data-align="center">$1</div>')
+    .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([\s\S]*?)__/g, '<strong>$1</strong>')
+    .replace(/_+([^_\n]+)_+/g, '<em>$1</em>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '<a href="$2">$1</a>')
+    .replace(/^\s*(?:-{3,}|\*{3,})\s*$/gm, '<hr />')
+    .replace(/\r?\n/g, '<br />')
+}
+
 export function AnimeDetailPage() {
+  const { showToast } = useToast()
   const params = useParams()
   const rawId = Number(params.anilistId)
   const anilistId = Number.isInteger(rawId) && rawId >= 1 ? rawId : null
@@ -65,9 +101,13 @@ export function AnimeDetailPage() {
   const [expandedRelatedAnimeId, setExpandedRelatedAnimeId] = useState<number | null>(null)
   const [isCollectionControlsOpen, setIsCollectionControlsOpen] = useState(true)
   const [isAnimeInfoOpen, setIsAnimeInfoOpen] = useState(true)
+  const [isEpisodesOpen, setIsEpisodesOpen] = useState(true)
   const [isCoverViewerOpen, setIsCoverViewerOpen] = useState(false)
   const [coverZoom, setCoverZoom] = useState(1)
   const [coverViewerIndex, setCoverViewerIndex] = useState(0)
+  const [reviewSort, setReviewSort] = useState<AnimeReviewSort>('highest')
+  const [isReviewsOpen, setIsReviewsOpen] = useState(false)
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set())
   useBodyScrollLock(isCoverViewerOpen)
 
   const animeQuery = useQuery({
@@ -82,6 +122,15 @@ export function AnimeDetailPage() {
     queryKey: ['anime', anilistId, 'related'],
     queryFn: () => fetchRelatedAnime(anilistId as number),
     enabled: relatedAnimeOpen,
+    retry: false,
+  })
+
+  const reviewsQuery = useInfiniteQuery({
+    queryKey: ['anime', anilistId, 'reviews', reviewSort],
+    queryFn: ({ pageParam }) => fetchAnimeReviews(anilistId as number, pageParam, reviewSort),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.has_next_page ? lastPage.page + 1 : undefined),
+    enabled: isReviewsOpen && animeQuery.isSuccess && anilistId != null,
     retry: false,
   })
 
@@ -127,9 +176,37 @@ export function AnimeDetailPage() {
   const updateMutation = useMutation({
     mutationFn: (body: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean }) =>
       updateLibrary(anilistId as number, body),
-    onSuccess: async () => {
+    onSuccess: (entry, changes) => {
+      if (changes.is_favorite !== undefined) {
+        showToast(changes.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      } else if (changes.score !== undefined) {
+        showToast(changes.score === null ? 'Rating cleared' : 'Rating updated')
+      } else if (changes.status !== undefined) {
+        showToast(`Status changed to ${STATUS_LABELS[entry.status]}`)
+      }
+    },
+    onMutate: async (changes) => {
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousEntry = queryClient.getQueryData<typeof savedEntry>(['library-entry', anilistId])
+      if (previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], {
+          ...previousEntry,
+          ...changes,
+        })
+      }
+      return { previousEntry }
+    },
+    onError: (_error, _changes, context) => {
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async () => {
       setIsStatusMenuOpen(false)
-      await refreshProgress()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
@@ -154,9 +231,50 @@ export function AnimeDetailPage() {
   const episodeMutation = useMutation({
     mutationFn: (input: { episode: number; watched: boolean }) =>
       setEpisodeWatched(anilistId as number, input.episode, input.watched),
-    onSuccess: async (_data, input) => {
+    onSuccess: (_data, input) => {
+      showToast(input.watched ? `Episode ${input.episode} marked watched` : `Episode ${input.episode} removed`)
+    },
+    onMutate: async ({ episode, watched }) => {
+      await queryClient.cancelQueries({ queryKey: ['episodes', anilistId] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousEpisodes = queryClient.getQueryData<typeof episodesQuery.data>(['episodes', anilistId])
+      const previousEntry = queryClient.getQueryData<typeof savedEntry>(['library-entry', anilistId])
+      if (previousEpisodes) {
+        const nextEpisodes = new Set(previousEpisodes.episodes)
+        if (watched) {
+          nextEpisodes.add(episode)
+        } else {
+          nextEpisodes.delete(episode)
+        }
+        queryClient.setQueryData(['episodes', anilistId], {
+          ...previousEpisodes,
+          episodes: [...nextEpisodes].sort((left, right) => left - right),
+        })
+      }
+      if (previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], {
+          ...previousEntry,
+          watched_count: Math.max(0, previousEntry.watched_count + (watched ? 1 : -1)),
+          last_episode_watched: watched ? episode : Math.max(0, episode - 1),
+        })
+      }
+      return { previousEpisodes, previousEntry }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previousEpisodes) {
+        queryClient.setQueryData(['episodes', anilistId], context.previousEpisodes)
+      }
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_data, _error, input) => {
       setFocusEpisode(input.episode)
-      await refreshProgress()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['episodes', anilistId] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
@@ -206,6 +324,7 @@ export function AnimeDetailPage() {
   const watchedCount = episodes.length
   const lastEpisode = episodes.reduce((max, episode) => Math.max(max, episode), 0)
   const total = anime.total_episodes
+  const reviewItems = reviewsQuery.data?.pages.flatMap((page) => page.reviews) ?? []
   const actionError =
     episodeMutation.error ??
     markMutation.error ??
@@ -418,7 +537,12 @@ export function AnimeDetailPage() {
             {inLibrary ? (
               <button
                 type="button"
-                onClick={() => episodeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  onClick={() => {
+                    setIsEpisodesOpen(true)
+                    requestAnimationFrame(() => {
+                      episodeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    })
+                  }}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-indigo-200/20 bg-indigo-400/10 px-4 text-xs font-medium text-indigo-100 transition hover:border-indigo-200/35 hover:bg-indigo-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70"
               >
                 <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -505,7 +629,7 @@ export function AnimeDetailPage() {
             onClick={() => setIsAnimeInfoOpen((open) => !open)}
             className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
           >
-            <span>Anime info</span>
+            <span className="flex min-w-0 items-center gap-2"><SectionIcon name="info" />Anime info</span>
             <svg
               viewBox="0 0 20 20"
               aria-hidden="true"
@@ -632,9 +756,9 @@ export function AnimeDetailPage() {
             aria-expanded={relatedAnimeOpen}
             aria-controls="related-anime-content"
             onClick={() => setExpandedRelatedAnimeId(relatedAnimeOpen ? null : anilistId)}
-            className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03]"
+            className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
           >
-            <span>Related anime</span>
+            <span className="flex min-w-0 items-center gap-2"><SectionIcon name="related" />Related anime</span>
             <svg
               viewBox="0 0 20 20"
               aria-hidden="true"
@@ -714,7 +838,7 @@ export function AnimeDetailPage() {
               onClick={() => setIsCollectionControlsOpen((open) => !open)}
               className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
             >
-              <span>Collection controls</span>
+              <span className="flex min-w-0 items-center gap-2"><SectionIcon name="collection" />Collection controls</span>
               <svg
                 viewBox="0 0 20 20"
                 aria-hidden="true"
@@ -873,21 +997,198 @@ export function AnimeDetailPage() {
       ) : null}
 
       {inLibrary ? (
-        <div ref={episodeSectionRef} className="scroll-mt-24">
-          <EpisodeGrid
-            totalEpisodes={total}
-            watchedEpisodes={episodes}
-            focusEpisode={focusEpisode}
-            onJumpToEpisode={setFocusEpisode}
-            onMarkUpToEpisode={(episode) => markMutation.mutate(episode)}
-            markingPending={markMutation.isPending}
-            onSelect={(episode) => {
-              setSelectedEpisode(episode)
-              setFocusEpisode(episode)
-            }}
-          />
-        </div>
+        <section
+          ref={episodeSectionRef}
+          className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 scroll-mt-24"
+          aria-labelledby="anime-episodes-title"
+        >
+          <h2 id="anime-episodes-title">
+            <button
+              type="button"
+              aria-expanded={isEpisodesOpen}
+              aria-controls="anime-episodes-content"
+              onClick={() => setIsEpisodesOpen((open) => !open)}
+              className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
+            >
+              <span className="flex min-w-0 items-center gap-2"><SectionIcon name="episodes" />Episodes</span>
+              <svg
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                className={`size-4 shrink-0 text-zinc-400 transition-transform ${isEpisodesOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              >
+                <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </h2>
+          <div
+            id="anime-episodes-content"
+            hidden={!isEpisodesOpen}
+            className="w-full min-w-0 max-w-full border-t border-white/[0.08] p-3 sm:p-4"
+          >
+            <EpisodeGrid
+              totalEpisodes={total}
+              watchedEpisodes={episodes}
+              focusEpisode={focusEpisode}
+              onJumpToEpisode={setFocusEpisode}
+              onMarkUpToEpisode={(episode) => markMutation.mutate(episode)}
+              markingPending={markMutation.isPending}
+              onSelect={(episode) => {
+                setSelectedEpisode(episode)
+                setFocusEpisode(episode)
+              }}
+            />
+          </div>
+        </section>
       ) : null}
+
+      <section className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40" aria-labelledby="anime-reviews-title">
+        <h2 id="anime-reviews-title">
+          <button
+            type="button"
+            aria-expanded={isReviewsOpen}
+            aria-controls="anime-reviews-content"
+            onClick={() => setIsReviewsOpen((open) => !open)}
+            className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
+          >
+            <span className="flex min-w-0 items-center gap-2"><SectionIcon name="reviews" />User reviews</span>
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              className={`size-4 shrink-0 text-zinc-400 transition-transform ${isReviewsOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            >
+              <path d="m4 7 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div
+          id="anime-reviews-content"
+          hidden={!isReviewsOpen}
+          className="w-full min-w-0 max-w-full space-y-4 border-t border-white/[0.08] p-3 sm:p-4"
+        >
+          {isReviewsOpen ? (
+          <>
+            {reviewsQuery.isPending && !reviewsQuery.data ? (
+              <LoadingIndicator label="Loading reviews…" />
+            ) : reviewsQuery.error ? (
+              <ErrorPanel
+                message={errorText(reviewsQuery.error, 'Unable to load reviews.')}
+                onRetry={() => { void reviewsQuery.refetch() }}
+              />
+            ) : reviewItems.length === 0 ? (
+              <p className="text-sm text-zinc-400">No reviews available.</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-sm text-zinc-400">Sort reviews</span>
+                  <div className="flex flex-wrap gap-1 rounded-full border border-white/10 bg-zinc-950/40 p-1" role="group" aria-label="Review sort">
+                    {([
+                      ['newest', 'Newest'],
+                      ['highest', 'Highest rated'],
+                      ['lowest', 'Lowest rated'],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={reviewSort === value}
+                        onClick={() => setReviewSort(value)}
+                        className={cn(
+                          'rounded-full px-3 py-1.5 text-xs transition-colors',
+                          reviewSort === value
+                            ? 'bg-indigo-500/20 text-indigo-100'
+                            : 'text-zinc-400 hover:text-zinc-100',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <ul className="space-y-3">
+                  {reviewItems.map((review) => (
+                    <li key={review.id} className="rounded-2xl border border-white/10 bg-zinc-900/45 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-medium text-zinc-100">{review.summary || 'Review'}</h3>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                            {review.user_avatar_url ? (
+                              <img
+                                src={review.user_avatar_url}
+                                alt=""
+                                className="size-5 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="size-5 rounded-full bg-zinc-800" aria-hidden="true" />
+                            )}
+                            <span>{review.user_name} · {new Date(review.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+                          {review.score != null ? (
+                            <span className="rounded-full bg-amber-200/10 px-2 py-1 text-amber-200">
+                              Anime score: {review.score}/100
+                            </span>
+                          ) : null}
+                          {review.rating != null ? (
+                            <span className="rounded-full bg-indigo-200/10 px-2 py-1 text-indigo-200">
+                              Review rating: {review.rating}
+                              {review.rating_amount != null ? ` (${review.rating_amount} ratings)` : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className={cn(
+                        'mt-3 rounded-xl border border-white/[0.06] bg-zinc-950/30 p-3 text-sm leading-relaxed text-zinc-300 transition-[max-height,opacity] duration-300 ease-in-out',
+                        expandedReviewIds.has(review.id)
+                          ? 'max-h-[100000px] overflow-visible opacity-100'
+                          : 'max-h-64 overflow-y-auto opacity-90',
+                      )}>
+                        {renderAnimeDescription(
+                          formatReviewBody(review.body),
+                        )}
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedReviewIds((current) => {
+                              const next = new Set(current)
+                              if (next.has(review.id)) next.delete(review.id)
+                              else next.add(review.id)
+                              return next
+                            })
+                          }}
+                          className="text-xs font-medium text-indigo-300 underline decoration-indigo-300/40 underline-offset-4 transition hover:text-indigo-200"
+                        >
+                          {expandedReviewIds.has(review.id) ? 'Collapse review' : 'Expand review'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {reviewsQuery.hasNextPage ? (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => { void reviewsQuery.fetchNextPage() }}
+                      disabled={reviewsQuery.isFetchingNextPage}
+                      className="text-sm font-medium text-indigo-300 underline decoration-indigo-300/40 underline-offset-4 transition hover:text-indigo-200 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {reviewsQuery.isFetchingNextPage ? 'Loading more reviews…' : 'Load more reviews'}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </>
+          ) : null}
+        </div>
+      </section>
 
       {isCoverViewerOpen && anime.cover_url
         ? createPortal(

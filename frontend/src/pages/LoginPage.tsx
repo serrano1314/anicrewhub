@@ -239,7 +239,7 @@ export function LoginPage() {
                           <Link to="/terms" target="_blank" className="text-indigo-300 hover:text-indigo-200">
                             Terms
                           </Link>
-                          {termsQuery.data ? ` (version ${termsQuery.data.version})` : ''}.
+                          {/* {termsQuery.data ? ` (version ${termsQuery.data.version})` : ''}. */}
                         </span>
                       </label>
                     ) : null}

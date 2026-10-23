@@ -81,6 +81,13 @@ export function PrivacySharingSection() {
         onChange={(share_collection) => save.mutate({ share_collection })}
       />
       <ToggleRow
+        label="Only Share my favorites"
+        description="When enabled, only anime marked as favorites appear in your shared collection."
+        checked={privacy.share_favorites_only}
+        disabled={save.isPending}
+        onChange={(share_favorites_only) => save.mutate({ share_favorites_only })}
+      />
+      <ToggleRow
         label="Share my reusable watch sites"
         description="Lets approved viewers copy a site name, address, and episode or search templates. Links saved for one specific anime stay private."
         checked={privacy.share_watch_sites}

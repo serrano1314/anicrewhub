@@ -48,12 +48,11 @@ export type LibrarySummary = {
 }
 
 export type LibraryListResponse = {
-  page: number
-  has_next_page: boolean
-  total_count: number
-  total_pages: number
+  items: LibraryEntry[]
+  hasMore: boolean
+  nextOffset: number | null
+  totalCount: number
   summary: LibrarySummary
-  results: LibraryEntry[]
 }
 
 export type WatchedEpisodes = {

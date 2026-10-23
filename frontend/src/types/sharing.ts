@@ -14,6 +14,7 @@ export type TermsDocument = {
 export type PrivacySettings = {
   profile_public: boolean
   share_collection: boolean
+  share_favorites_only: boolean
   share_watch_sites: boolean
 }
 

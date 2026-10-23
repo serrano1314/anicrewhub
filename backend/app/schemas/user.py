@@ -25,5 +25,6 @@ class UserResponse(BaseModel):
     avatar_id: AvatarId | None = None
     profile_public: bool = True
     share_collection: bool = True
+    share_favorites_only: bool = False
     share_watch_sites: bool = True
     terms_accepted: bool = False

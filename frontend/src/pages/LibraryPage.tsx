@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { fetchLibrary, setEpisodeWatched, updateLibrary } from '../api/library'
 import { EmptyState, ErrorPanel } from '../components/PageStatus'
 import { AnimeSpotlightCarousel } from '../components/AnimeSpotlightCarousel'
-import { Pager } from '../components/Pager'
 import { ProgressMeter } from '../components/ProgressMeter'
 import { StarRating } from '../components/StarRating'
 import { ScrollingTitle } from '../components/ScrollingTitle'
@@ -15,15 +14,23 @@ import { nextEpisodeToMark } from '../lib/episodes'
 import { PageHeader } from '../components/PageHeader'
 import { backFromLibrary } from '../lib/navigation'
 import { UI, cn } from '../lib/ui'
+import { useToast } from '../components/toastContext'
 import {
   STATUS_LABELS,
   isLibraryStatus,
+  type LibraryEntry,
+  type LibraryListResponse,
   type LibrarySort,
   type LibrarySummary,
   type LibraryStatus,
+  type WatchedEpisodes,
 } from '../types/library'
 
 type DisplayMode = 'compact' | 'normal' | 'wide'
+type LibraryInfiniteData = {
+  pages: LibraryListResponse[]
+  pageParams: unknown[]
+}
 
 const DISPLAY_MODES: { id: DisplayMode; label: string }[] = [
   { id: 'compact', label: 'Compact' },
@@ -98,14 +105,6 @@ function LibraryStatusIcon({ status }: { status: LibraryStatus }) {
   )
 }
 
-function parsePage(value: string | null): number {
-  const page = Number(value)
-  if (!Number.isInteger(page) || page < 1) {
-    return 1
-  }
-  return page
-}
-
 function DisplayModeIcon({ mode }: { mode: DisplayMode }) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-4">
@@ -136,11 +135,11 @@ function DisplayModeIcon({ mode }: { mode: DisplayMode }) {
 }
 
 export function LibraryPage() {
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const statusParam = params.get('status')
   const status = statusParam && isLibraryStatus(statusParam) ? statusParam : undefined
-  const page = parsePage(params.get('page'))
   const favorites = params.get('favorites') === 'true'
   const sortParam = params.get('sort')
   const sort = isLibrarySort(sortParam) ? sortParam : 'updated'
@@ -153,6 +152,7 @@ export function LibraryPage() {
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
   const layoutMenuRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLUListElement>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   const [displayMode, setDisplayModeValue] = useState<DisplayMode>(getSavedDisplayMode)
   const [collectionSummary, setCollectionSummary] = useState<LibrarySummary | null>(null)
   const [openActionsId, setOpenActionsId] = useState<number | null>(null)
@@ -211,7 +211,6 @@ export function LibraryPage() {
       const updated = new URLSearchParams(params)
       if (trimmed) {
         updated.set('q', trimmed)
-        updated.delete('page')
       } else {
         updated.delete('q')
       }
@@ -229,24 +228,103 @@ export function LibraryPage() {
   }, [displayMode])
 
   const query = params.get('q')?.trim() ?? ''
-  const listQuery = useQuery({
-    queryKey: ['library', status ?? 'all', favorites, page, query, sort],
-    queryFn: () => fetchLibrary(status, page, query, favorites, sort),
+  const listQuery = useInfiniteQuery({
+    queryKey: ['library', status ?? 'all', favorites, query, sort],
+    queryFn: ({ pageParam }) => fetchLibrary(status, pageParam, query, favorites, sort),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset ?? undefined,
   })
 
   useEffect(() => {
-    if (listQuery.data?.summary) {
-      setCollectionSummary(listQuery.data.summary)
+    const summary = listQuery.data?.pages[0]?.summary
+    if (summary) {
+      setCollectionSummary(summary)
     }
-  }, [listQuery.data?.summary])
+  }, [listQuery.data?.pages])
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel || !listQuery.hasNextPage) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !listQuery.isFetchingNextPage) {
+          void listQuery.fetchNextPage()
+        }
+      },
+      { rootMargin: '480px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage])
 
   const episodeMutation = useMutation({
     mutationFn: (input: { anilistId: number; episode: number; watched: boolean }) =>
       setEpisodeWatched(input.anilistId, input.episode, input.watched),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['library'] })
-      await queryClient.invalidateQueries({ queryKey: ['episodes'] })
-      await queryClient.invalidateQueries({ queryKey: ['library-entry'] })
+    onSuccess: (_data, input) => {
+      showToast(input.watched ? `Episode ${input.episode} marked watched` : `Episode ${input.episode} removed`)
+    },
+    onMutate: async ({ anilistId, episode, watched }) => {
+      await queryClient.cancelQueries({ queryKey: ['library'] })
+      await queryClient.cancelQueries({ queryKey: ['episodes', anilistId] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousLibrary = queryClient.getQueriesData<LibraryInfiniteData>({ queryKey: ['library'] })
+      const previousEpisodes = queryClient.getQueryData<WatchedEpisodes>(['episodes', anilistId])
+      const previousEntry = queryClient.getQueryData<LibraryEntry>(['library-entry', anilistId])
+      const updateProgress = (entry: LibraryEntry) => ({
+        ...entry,
+        watched_count: Math.max(0, entry.watched_count + (watched ? 1 : -1)),
+        last_episode_watched: watched ? episode : Math.max(0, episode - 1),
+      })
+
+      queryClient.setQueriesData<LibraryInfiniteData>({ queryKey: ['library'] }, (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                items: page.items.map((entry) =>
+                  entry.anilist_id === anilistId ? updateProgress(entry) : entry,
+                ),
+              })),
+            }
+          : current,
+      )
+      if (previousEpisodes) {
+        const episodes = new Set(previousEpisodes.episodes)
+        if (watched) {
+          episodes.add(episode)
+        } else {
+          episodes.delete(episode)
+        }
+        queryClient.setQueryData<WatchedEpisodes>(['episodes', anilistId], {
+          ...previousEpisodes,
+          episodes: [...episodes].sort((left, right) => left - right),
+        })
+      }
+      if (previousEntry) {
+        queryClient.setQueryData<LibraryEntry>(['library-entry', anilistId], updateProgress(previousEntry))
+      }
+      return { previousLibrary, previousEpisodes, previousEntry }
+    },
+    onError: (_error, { anilistId }, context) => {
+      context?.previousLibrary.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
+      if (context?.previousEpisodes) {
+        queryClient.setQueryData(['episodes', anilistId], context.previousEpisodes)
+      }
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_data, _error, { anilistId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['episodes', anilistId] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', anilistId] }),
+      ])
     },
   })
 
@@ -255,9 +333,63 @@ export function LibraryPage() {
       anilistId: number
       changes: { status?: LibraryStatus; score?: number | null; is_favorite?: boolean }
     }) => updateLibrary(input.anilistId, input.changes),
-    onSuccess: async (_entry, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['library'] })
-      await queryClient.invalidateQueries({ queryKey: ['library-entry', input.anilistId] })
+    onSuccess: (_entry, { changes }) => {
+      if (changes.is_favorite !== undefined) {
+        showToast(changes.is_favorite ? 'Added to favorites' : 'Removed from favorites')
+      } else if (changes.score !== undefined) {
+        showToast(changes.score === null ? 'Rating cleared' : 'Rating updated')
+      } else if (changes.status !== undefined) {
+        showToast(`Status changed to ${STATUS_LABELS[changes.status]}`)
+      }
+    },
+    onMutate: async ({ anilistId, changes }) => {
+      await queryClient.cancelQueries({ queryKey: ['library'] })
+      await queryClient.cancelQueries({ queryKey: ['library-entry', anilistId] })
+      const previousLibrary = queryClient.getQueriesData<LibraryInfiniteData>({ queryKey: ['library'] })
+      const previousEntry = queryClient.getQueryData<LibraryEntry>(['library-entry', anilistId])
+
+      queryClient.setQueriesData<LibraryInfiniteData>({ queryKey: ['library'] }, (current) => {
+        if (!current) {
+          return current
+        }
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) =>
+              item.anilist_id === anilistId ? { ...item, ...changes } : item,
+            ),
+            summary:
+              changes.is_favorite === undefined
+                ? page.summary
+                : {
+                    ...page.summary,
+                    favorites: page.summary.favorites + (changes.is_favorite ? 1 : -1),
+                  },
+          })),
+        }
+      })
+      if (previousEntry) {
+        queryClient.setQueryData<LibraryEntry>(['library-entry', anilistId], {
+          ...previousEntry,
+          ...changes,
+        })
+      }
+      return { previousLibrary, previousEntry }
+    },
+    onError: (_error, { anilistId }, context) => {
+      context?.previousLibrary.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
+      if (context?.previousEntry) {
+        queryClient.setQueryData(['library-entry', anilistId], context.previousEntry)
+      }
+    },
+    onSettled: async (_entry, _error, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['library'] }),
+        queryClient.invalidateQueries({ queryKey: ['library-entry', input.anilistId] }),
+      ])
     },
   })
 
@@ -272,17 +404,6 @@ export function LibraryPage() {
       updated.set('favorites', 'true')
     } else {
       updated.delete('favorites')
-    }
-    updated.delete('page')
-    setParams(updated)
-  }
-
-  function setPage(next: number) {
-    const updated = new URLSearchParams(params)
-    if (next <= 1) {
-      updated.delete('page')
-    } else {
-      updated.set('page', String(next))
     }
     setParams(updated)
   }
@@ -581,7 +702,7 @@ export function LibraryPage() {
           </div>
         </div>
       </div>
-      {listQuery.data && listQuery.data.results.length === 0 ? (
+      {listQuery.data && listQuery.data.pages[0]?.items.length === 0 ? (
         <EmptyState>
           <div className="space-y-2">
             <p className="font-medium text-zinc-200">
@@ -694,7 +815,7 @@ export function LibraryPage() {
                 </div>
               </li>
             ))
-          : listQuery.data?.results.map((entry) => {
+          : listQuery.data?.pages.flatMap((page) => page.items).map((entry) => {
           const title = displayTitle(entry)
           const next = nextEpisodeToMark(entry.last_episode_watched, entry.total_episodes)
           const episodePending =
@@ -1035,15 +1156,19 @@ export function LibraryPage() {
           )
         })}
       </ul>
-      {listQuery.data ? (
-        <Pager
-          page={listQuery.data.page}
-          hasNext={listQuery.data.has_next_page}
-          totalCount={listQuery.data.total_count}
-          totalPages={listQuery.data.total_pages}
-          onPage={setPage}
-        />
-      ) : null}
+      <div ref={loadMoreRef} className="flex min-h-12 items-center justify-center py-4" aria-live="polite">
+        {listQuery.isFetchingNextPage ? (
+          <>
+            <span
+              aria-hidden="true"
+              className="size-5 animate-spin rounded-full border-2 border-indigo-200/25 border-t-indigo-200"
+            />
+            <span className="sr-only">Loading more saved anime…</span>
+          </>
+        ) : listQuery.data && !listQuery.hasNextPage && listQuery.data.pages[0]?.items.length ? (
+          <p className="text-sm text-zinc-500">No more results below.</p>
+        ) : null}
+      </div>
       {watchSelection ? (
         <WatchLinksDialog
           anilistId={watchSelection.anilistId}

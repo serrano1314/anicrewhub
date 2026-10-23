@@ -1,4 +1,11 @@
-import type { AnimeDetail, AnimeSearchResponse, RelatedAnime, WatchLink } from '../types/anime'
+import type {
+  AnimeDetail,
+  AnimeReviewSort,
+  AnimeReviewsResponse,
+  AnimeSearchResponse,
+  RelatedAnime,
+  WatchLink,
+} from '../types/anime'
 import { apiFetch, readJson } from './client'
 
 export function searchAnime(query: string, page: number): Promise<AnimeSearchResponse> {
@@ -21,6 +28,17 @@ export function fetchAnime(anilistId: number): Promise<AnimeDetail> {
 export function fetchRelatedAnime(anilistId: number): Promise<RelatedAnime[]> {
   return apiFetch(`/api/v1/anime/${anilistId}/related`).then((response) =>
     readJson<RelatedAnime[]>(response),
+  )
+}
+
+export function fetchAnimeReviews(
+  anilistId: number,
+  page: number,
+  sort: AnimeReviewSort,
+): Promise<AnimeReviewsResponse> {
+  const params = new URLSearchParams({ page: String(page), sort })
+  return apiFetch(`/api/v1/anime/${anilistId}/reviews?${params.toString()}`).then((response) =>
+    readJson<AnimeReviewsResponse>(response),
   )
 }
 

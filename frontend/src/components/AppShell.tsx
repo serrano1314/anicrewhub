@@ -109,6 +109,12 @@ function NavigationItems({
           end={item.end}
           aria-label={item.label}
           title={item.label}
+          onClick={(event) => {
+            if ((item.to === '/' && pathname === '/') || (item.to === '/search' && pathname === '/search')) {
+              event.preventDefault()
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+          }}
           className={({ isActive }) => navClass(isActive, compact)}
         >
           {({ isActive }) => (

@@ -114,6 +114,22 @@ def test_privacy_search_follow_collection_and_site_copy(client: TestClient, db: 
     assert "score" not in item
     assert "is_favorite" not in item
 
+    hidden_favorite = client.patch(
+        "/api/v1/me/privacy",
+        json={"share_favorites_only": True},
+        headers=owner,
+    )
+    assert hidden_favorite.status_code == 200
+    assert hidden_favorite.json()["share_favorites_only"] is True
+    favorites_only = client.get("/api/v1/users/owner/collection", headers=viewer)
+    assert [row["anilist_id"] for row in favorites_only.json()["results"]] == [21]
+
+    entry.is_favorite = False
+    db.commit()
+    assert client.get("/api/v1/users/owner/collection", headers=viewer).json()["results"] == []
+    owner_view = client.get("/api/v1/users/owner/collection", headers=owner)
+    assert len(owner_view.json()["results"]) == 1
+
     copied = client.post("/api/v1/users/owner/sites/copy", json={"site_ids": [site_id]}, headers=viewer)
     assert copied.status_code == 200
     assert copied.json()["copied"][0]["source_username"] == "owner"

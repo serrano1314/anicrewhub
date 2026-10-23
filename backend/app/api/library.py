@@ -69,7 +69,8 @@ def _call(action: Callable[[], T]) -> T:
 @router.get("", response_model=LibraryListResponse)
 def read_library(
     status_filter: LibraryStatus | None = Query(default=None, alias="status"),
-    page: int = Query(default=1, ge=1),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=12, ge=1, le=12),
     q: str | None = Query(default=None, alias="q"),
     favorite_only: bool = Query(default=False, alias="favorites"),
     sort_by: LibrarySort = Query(default=LibrarySort.updated, alias="sort"),
@@ -80,7 +81,8 @@ def read_library(
         db,
         current_user,
         status_filter=status_filter,
-        page=page,
+        offset=offset,
+        limit=limit,
         query=q,
         favorite_only=favorite_only,
         sort_by=sort_by,

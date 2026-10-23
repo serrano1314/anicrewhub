@@ -1,6 +1,9 @@
 # AnimeCrew Hub
 
-Episode progress tracker. Search comes from AniList. Your list, episode progress, and watch-site links are stored in Neon Postgres. A Chrome extension can save the episode you are watching.
+Anime collection and community platform (formerly *Anime Tracker*). Discover trending shows, organize your personal anime collection, follow friends, share watch sites, and track episode progress across any streaming site with an optional Chrome extension.
+
+> 📖 **Looking for a user-facing overview of features and what's coming next?**  
+> Check out the [Feature Guide & Product Overview](docs/FEATURES.md).
 
 ## Stack
 

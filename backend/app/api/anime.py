@@ -8,7 +8,14 @@ from app.core.deps import require_accepted_terms
 from app.db.session import get_db
 from app.models.anime import Anime
 from app.models.user import User
-from app.schemas.anime import AnimeDiscoveryKind, AnimeResponse, AnimeSearchResponse, RelatedAnime
+from app.schemas.anime import (
+    AnimeDiscoveryKind,
+    AnimeResponse,
+    AnimeReviewSort,
+    AnimeReviewsResponse,
+    AnimeSearchResponse,
+    RelatedAnime,
+)
 from app.schemas.watch_links import WatchLink
 from app.services.anime import discover_anime, get_anime, search_anime
 from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited, get_anilist_client
@@ -89,6 +96,16 @@ def read_related_anime(
     _current_user: User = Depends(require_accepted_terms),
 ) -> list[RelatedAnime]:
     return _call(lambda: get_anilist_client().fetch_related(anilist_id))
+
+
+@router.get("/{anilist_id}/reviews", response_model=AnimeReviewsResponse)
+def read_reviews(
+    anilist_id: int = Path(ge=1),
+    page: int = Query(default=1, ge=1),
+    sort: AnimeReviewSort = Query(default=AnimeReviewSort.highest),
+    _current_user: User = Depends(require_accepted_terms),
+) -> AnimeReviewsResponse:
+    return _call(lambda: get_anilist_client().fetch_reviews(anilist_id, page, sort))
 
 
 @router.post("/from-anilist/{anilist_id}", response_model=AnimeResponse)

@@ -79,7 +79,7 @@ def test_export_import_round_trip(client: TestClient, db: Session) -> None:
     assert len(payload["anime_sites"]) == 1
 
     client.delete("/api/v1/library/21", headers=headers)
-    assert client.get("/api/v1/library", headers=headers).json()["results"] == []
+    assert client.get("/api/v1/library", headers=headers).json()["items"] == []
 
     imported = client.post("/api/v1/library/import", json={"document": payload}, headers=headers)
     assert imported.status_code == 200
@@ -87,8 +87,8 @@ def test_export_import_round_trip(client: TestClient, db: Session) -> None:
 
     list_after = client.get("/api/v1/library", headers=headers)
     assert list_after.status_code == 200
-    assert len(list_after.json()["results"]) == 1
-    assert list_after.json()["results"][0]["is_favorite"] is True
+    assert len(list_after.json()["items"]) == 1
+    assert list_after.json()["items"][0]["is_favorite"] is True
     episodes = client.get("/api/v1/library/21/episodes", headers=headers)
     assert 5 in episodes.json()["episodes"]
 

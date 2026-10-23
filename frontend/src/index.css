@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+@keyframes toast-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  12%,
+  84% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.2rem);
+  }
+}
+
+.toast-pop {
+  animation: toast-pop 2.2s ease both;
+}
+
 body {
   margin: 0;
   background: #09090b;

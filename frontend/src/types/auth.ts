@@ -7,6 +7,7 @@ export type User = {
   avatar_id: AvatarId | null
   profile_public: boolean
   share_collection: boolean
+  share_favorites_only: boolean
   share_watch_sites: boolean
   terms_accepted: boolean
 }

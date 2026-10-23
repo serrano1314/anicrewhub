@@ -565,7 +565,7 @@ export function AnimeSpotlightCarousel({
                     </a>
                   )}
                   <div className="absolute bottom-3 right-3 z-10">
-                    {saveControl}
+                    {/* {saveControl} */}
                   </div>
                 </div>
               ) : null}
