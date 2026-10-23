@@ -343,30 +343,30 @@ export function AnimeSpotlightCarousel({
                     </div>
                   </a>
                 )}
-                {isAuthenticated ? (
-                  <button
-                    ref={statusMenuOpen ? addButtonRef : undefined}
-                    type="button"
-                    disabled={isAdded || isPending}
-                    aria-label={isAdded ? `${title} added to collection` : `Add ${title} to collection`}
-                    aria-expanded={statusMenuOpen}
-                    aria-controls={`spotlight-status-${anime.anilist_id}`}
-                    title={isAdded ? 'Added to collection' : 'Add to collection'}
-                    onClick={() => setOpenStatusId(statusMenuOpen ? null : anime.anilist_id)}
-                    className="absolute right-2 top-2 z-20 inline-flex size-10 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white shadow-lg shadow-black/30 backdrop-blur-xl transition hover:bg-white/25 disabled:opacity-60"
-                  >
-                    {isPending ? (
-                      <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    ) : isAdded ? (
-                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5">
-                        <path d="m4 10 4 4 8-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5">
-                        <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    )}
-                  </button>
+                {isAuthenticated ? (<>  </>
+                  // <button
+                  //   ref={statusMenuOpen ? addButtonRef : undefined}
+                  //   type="button"
+                  //   disabled={isAdded || isPending}
+                  //   aria-label={isAdded ? `${title} added to collection` : `Add ${title} to collection`}
+                  //   aria-expanded={statusMenuOpen}
+                  //   aria-controls={`spotlight-status-${anime.anilist_id}`}
+                  //   title={isAdded ? 'Added to collection' : 'Add to collection'}
+                  //   onClick={() => setOpenStatusId(statusMenuOpen ? null : anime.anilist_id)}
+                  //   className="absolute right-2 top-2 z-20 inline-flex size-10 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white shadow-lg shadow-black/30 backdrop-blur-xl transition hover:bg-white/25 disabled:opacity-60"
+                  // >
+                  //   {isPending ? (
+                  //     <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  //   ) : isAdded ? (
+                  //     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5">
+                  //       <path d="m4 10 4 4 8-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  //     </svg>
+                  //   ) : (
+                  //     <svg viewBox="0 0 20 20" aria-hidden="true" className="size-5">
+                  //       <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  //     </svg>
+                  //   )}
+                  // </button>
                 ) : hideUnauthenticatedSave ? null : (
                   <Link
                     to="/"
