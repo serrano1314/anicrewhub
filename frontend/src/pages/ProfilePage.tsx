@@ -396,7 +396,7 @@ export function ProfilePage() {
                   ref={fieldInputRef}
                   aria-label="Username"
                   type="text"
-                  autoComplete="username"
+                  // autoComplete="username"
                   minLength={3}
                   maxLength={32}
                   pattern="[a-zA-Z0-9_]+"
@@ -438,7 +438,7 @@ export function ProfilePage() {
                   ref={fieldInputRef}
                   aria-label="Email"
                   type="email"
-                  autoComplete="email"
+                  // autoComplete="email"
                   maxLength={255}
                   required
                   value={email}

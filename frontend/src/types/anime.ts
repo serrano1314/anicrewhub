@@ -57,6 +57,26 @@ export type AnimeSearchResponse = {
   results: Anime[]
 }
 
+export type AnimeReviewSort = 'newest' | 'highest' | 'lowest'
+
+export type AnimeReview = {
+  id: number
+  summary: string | null
+  body: string
+  rating: number | null
+  rating_amount: number | null
+  score: number | null
+  user_name: string
+  user_avatar_url: string | null
+  created_at: string
+}
+
+export type AnimeReviewsResponse = {
+  page: number
+  has_next_page: boolean
+  reviews: AnimeReview[]
+}
+
 export type WatchLinkSource = 'saved' | 'copied' | 'official' | 'search'
 
 export type WatchLink = {

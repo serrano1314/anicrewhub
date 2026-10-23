@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 from collections.abc import Callable
 from typing import Protocol
 
@@ -9,6 +10,9 @@ from app.schemas.anime import (
     AnimeData,
     AnimeDetails,
     AnimeDiscoveryKind,
+    AnimeReview,
+    AnimeReviewSort,
+    AnimeReviewsResponse,
     AnimeSearchResponse,
     AnimeTag,
     ExternalLink,
@@ -113,6 +117,34 @@ query ($id: Int) {
           title { romaji english }
           format
           coverImage { medium }
+        }
+      }
+    }
+  }
+}
+"""
+
+REVIEWS_QUERY = """
+query ($id: Int, $page: Int, $perPage: Int, $sort: [ReviewSort]) {
+  Media(id: $id, type: ANIME) {
+    reviews(page: $page, perPage: $perPage, sort: $sort) {
+      pageInfo {
+        currentPage
+        hasNextPage
+      }
+      nodes {
+        id
+        summary
+        body
+        rating
+        ratingAmount
+        score
+        createdAt
+        user {
+          name
+          avatar {
+            large
+          }
         }
       }
     }
@@ -521,6 +553,70 @@ class AniListClient:
         if media is None:
             raise AniListNotFound("Anime not found")
         return map_related_anime(media)
+
+    def fetch_reviews(
+        self,
+        anilist_id: int,
+        page: int,
+        sort: AnimeReviewSort,
+    ) -> AnimeReviewsResponse:
+        sort_value = {
+            AnimeReviewSort.newest: "ID_DESC",
+            AnimeReviewSort.highest: "RATING_DESC",
+            AnimeReviewSort.lowest: "RATING",
+        }[sort]
+        payload = self._post(
+            REVIEWS_QUERY,
+            {"id": anilist_id, "page": page, "perPage": 5, "sort": [sort_value]},
+        )
+        data = payload.get("data")
+        media = data.get("Media") if isinstance(data, dict) else None
+        reviews_page = media.get("reviews") if isinstance(media, dict) else None
+        if not isinstance(reviews_page, dict):
+            raise AniListUnavailable("AniList returned an unexpected reviews payload")
+
+        info = reviews_page.get("pageInfo")
+        current_page = page
+        has_next_page = False
+        if isinstance(info, dict):
+            parsed_page = _as_int(info.get("currentPage"))
+            if parsed_page is not None:
+                current_page = parsed_page
+            has_next_page = bool(info.get("hasNextPage"))
+
+        reviews: list[AnimeReview] = []
+        nodes = reviews_page.get("nodes")
+        if isinstance(nodes, list):
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                user = node.get("user")
+                user_name = _as_str(user.get("name")) if isinstance(user, dict) else None
+                avatar = user.get("avatar") if isinstance(user, dict) else None
+                user_avatar_url = _as_str(avatar.get("large")) if isinstance(avatar, dict) else None
+                body = _as_str(node.get("body"))
+                review_id = _as_int(node.get("id"))
+                created_at = _as_int(node.get("createdAt"))
+                if review_id is None or not user_name or not body or created_at is None:
+                    continue
+                reviews.append(
+                    AnimeReview(
+                        id=review_id,
+                        summary=_as_str(node.get("summary")),
+                        body=body,
+                        rating=_as_int(node.get("rating")),
+                        rating_amount=_as_int(node.get("ratingAmount")),
+                        score=_as_int(node.get("score")),
+                        user_name=user_name,
+                        user_avatar_url=user_avatar_url,
+                        created_at=datetime.fromtimestamp(created_at, tz=timezone.utc),
+                    )
+                )
+        return AnimeReviewsResponse(
+            page=current_page,
+            has_next_page=has_next_page,
+            reviews=reviews,
+        )
 
     def _post(self, query: str, variables: dict[str, object]) -> dict[str, object]:
         body: dict[str, object] = {"query": query, "variables": variables}

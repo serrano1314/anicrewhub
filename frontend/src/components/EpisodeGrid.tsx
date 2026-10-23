@@ -129,8 +129,7 @@ export function EpisodeGrid({
 
   return (
     <div className="space-y-4">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-zinc-100">Episodes</h2>
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <form
             aria-label="Jump to episode"

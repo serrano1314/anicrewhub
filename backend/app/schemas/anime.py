@@ -9,6 +9,12 @@ class AnimeDiscoveryKind(StrEnum):
     trending = "trending"
 
 
+class AnimeReviewSort(StrEnum):
+    newest = "newest"
+    highest = "highest"
+    lowest = "lowest"
+
+
 class ExternalLink(BaseModel):
     site: str
     url: str
@@ -26,6 +32,24 @@ class RelatedAnime(BaseModel):
     relation: str
     format: str | None = None
     cover_url: str | None = None
+
+
+class AnimeReview(BaseModel):
+    id: int
+    summary: str | None = None
+    body: str
+    rating: int | None = None
+    rating_amount: int | None = None
+    score: int | None = None
+    user_name: str
+    user_avatar_url: str | None = None
+    created_at: datetime
+
+
+class AnimeReviewsResponse(BaseModel):
+    page: int
+    has_next_page: bool
+    reviews: list[AnimeReview]
 
 
 class AnimeDetails(BaseModel):

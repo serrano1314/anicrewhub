@@ -7,6 +7,7 @@ import { UI, cn } from '../lib/ui'
 import { Select } from './Select'
 import { addAnimeSite, fetchAnimeSites, fetchSites, removeAnimeSite, updateAnimeSite } from '../api/sites'
 import { useDialog } from './dialogContext'
+import { SectionIcon } from './SectionIcon'
 
 type AnimeSitesSectionProps = {
   anilistId: number
@@ -104,9 +105,9 @@ export function AnimeSitesSection({ anilistId }: AnimeSitesSectionProps) {
           aria-expanded={isOpen}
           aria-controls="anime-sites-content"
           onClick={() => setIsOpen((open) => !open)}
-          className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03]"
+          className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.03] sm:px-5"
         >
-          <span>My sites for this anime</span>
+          <span className="flex min-w-0 items-center gap-2"><SectionIcon name="sites" />My sites</span>
           <svg
             viewBox="0 0 20 20"
             aria-hidden="true"
