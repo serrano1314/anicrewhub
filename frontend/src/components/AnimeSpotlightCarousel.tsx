@@ -298,7 +298,6 @@ export function AnimeSpotlightCarousel({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {topTenResults.map((anime, index) => {
             const title = displayTitle(anime)
-            const isAdded = addedIds.includes(anime.anilist_id)
             const isPending =
               addMutation.isPending && addMutation.variables?.anilistId === anime.anilist_id
             const statusMenuOpen = openStatusId === anime.anilist_id
