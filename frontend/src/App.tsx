@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell'
 import { AuthPageLayout } from './components/AuthPageLayout'
 import { DialogProvider } from './components/DialogProvider'
 import { HomepageShadowLoader } from './components/HomepageShadowLoader'
+import { InteractiveParticleBackground } from './components/InteractiveParticleBackground'
 import { ToastProvider } from './components/toastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { TermsGate } from './components/TermsGate'
@@ -41,7 +42,7 @@ function HomePage() {
 
   if (!isAuthenticated) {
     return (
-      <AuthPageLayout>
+      <AuthPageLayout particles>
         <LoginPage />
       </AuthPageLayout>
     )
@@ -49,7 +50,12 @@ function HomePage() {
 
   return (
     <AppShell>
-      <LibraryPage />
+      <div className="relative isolate">
+        <InteractiveParticleBackground />
+        <div className="relative z-10">
+          <LibraryPage />
+        </div>
+      </div>
     </AppShell>
   )
 }
