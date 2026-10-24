@@ -27,6 +27,15 @@ def test_register_duplicate_email_returns_409(client: TestClient) -> None:
     assert response.status_code == 409
 
 
+def test_register_duplicate_username_is_case_insensitive(client: TestClient) -> None:
+    assert client.post("/api/v1/auth/register", json=REGISTER_BODY).status_code == 201
+    response = client.post(
+        "/api/v1/auth/register",
+        json={**REGISTER_BODY, "email": "other@example.com", "username": "Steven"},
+    )
+    assert response.status_code == 409
+
+
 def test_login_and_me(client: TestClient) -> None:
     client.post("/api/v1/auth/register", json=REGISTER_BODY)
     login = client.post(
@@ -119,6 +128,31 @@ def test_profile_update_rejects_taken_email_or_username(client: TestClient) -> N
     current = client.get("/api/v1/auth/me", headers=headers).json()
     assert current["email"] == REGISTER_BODY["email"]
     assert current["username"] == REGISTER_BODY["username"]
+
+
+def test_profile_update_rejects_case_insensitive_username_collision(client: TestClient) -> None:
+    first = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": "other@example.com", "username": "other", "password": "password123", "terms_version": "2026-10-21"},
+    )
+    response = client.patch(
+        "/api/v1/auth/me/profile",
+        json={"email": REGISTER_BODY["email"], "username": "OTHER"},
+        headers={"Authorization": f"Bearer {first.json()['access_token']}"},
+    )
+    assert response.status_code == 409
+
+
+def test_profile_update_allows_current_username_with_different_case(client: TestClient) -> None:
+    register = client.post("/api/v1/auth/register", json=REGISTER_BODY)
+    response = client.patch(
+        "/api/v1/auth/me/profile",
+        json={"email": REGISTER_BODY["email"], "username": "Steven"},
+        headers={"Authorization": f"Bearer {register.json()['access_token']}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["username"] == "Steven"
 
 
 def test_profile_update_validates_username_and_email(client: TestClient) -> None:
