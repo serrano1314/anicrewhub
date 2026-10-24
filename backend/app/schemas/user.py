@@ -8,7 +8,8 @@ AvatarId = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]*$", max_length
 
 
 class AvatarUpdateRequest(BaseModel):
-    avatar_id: AvatarId | None = Field(...)
+    avatar_id: AvatarId | None = Field(default=None)
+    avatar_url: str | None = Field(default=None, max_length=500)
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -23,6 +24,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     username: str
     avatar_id: AvatarId | None = None
+    avatar_url: str | None = None
     profile_public: bool = True
     share_collection: bool = True
     share_favorites_only: bool = False

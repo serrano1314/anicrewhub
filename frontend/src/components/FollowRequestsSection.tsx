@@ -34,7 +34,7 @@ export function FollowRequestsSection() {
       <ul className="space-y-2">
         {requestsQuery.data.map((request) => (
           <li key={request.username} className="flex flex-wrap items-center gap-3">
-            <ProfileAvatar username={request.username} avatarId={request.avatar_id} size="sm" />
+            <ProfileAvatar username={request.username} avatarId={request.avatar_id} avatarUrl={request.avatar_url} size="sm" />
             <Link to={`/users/${encodeURIComponent(request.username)}`} className="min-w-0 flex-1 truncate text-sm text-zinc-100 hover:text-indigo-200">
               {request.username}
             </Link>

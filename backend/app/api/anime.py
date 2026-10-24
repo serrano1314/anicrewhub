@@ -16,8 +16,10 @@ from app.schemas.anime import (
     AnimeSearchResponse,
     RelatedAnime,
 )
+from app.schemas.anime import CharacterAvatarResponse
 from app.schemas.watch_links import WatchLink
 from app.services.anime import discover_anime, get_anime, search_anime
+from app.services.character_avatars import list_character_avatars
 from app.services.anilist import AniListError, AniListNotFound, AniListRateLimited, get_anilist_client
 from app.services.progress import MAX_EPISODE_NUMBER
 from app.services.watch_links import list_watch_links
@@ -66,6 +68,20 @@ def search(
 @router.get("/discover/{kind}", response_model=AnimeSearchResponse)
 def discover(kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
     return _call(lambda: discover_anime(kind))
+
+
+@router.get("/characters", response_model=CharacterAvatarResponse)
+def characters(
+    q: str | None = Query(default=None, max_length=100),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=20),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_accepted_terms),
+) -> CharacterAvatarResponse:
+    results, has_more = _call(
+        lambda: list_character_avatars(db, current_user, q, offset=offset, limit=limit)
+    )
+    return CharacterAvatarResponse(results=results, has_more=has_more)
 
 
 @router.get(

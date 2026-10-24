@@ -5,6 +5,7 @@ export type User = {
   email: string
   username: string
   avatar_id: AvatarId | null
+  avatar_url: string | null
   profile_public: boolean
   share_collection: boolean
   share_favorites_only: boolean

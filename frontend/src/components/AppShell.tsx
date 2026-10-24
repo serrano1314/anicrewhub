@@ -20,6 +20,7 @@ type NavigationItemsProps = {
   compact?: boolean
   username: string
   avatarId: AvatarId | null
+  avatarUrl: string | null
 }
 
 function navClass(active: boolean, compact = false): string {
@@ -86,6 +87,7 @@ function NavigationItems({
   compact = false,
   username,
   avatarId,
+  avatarUrl,
 }: NavigationItemsProps) {
   const { pathname } = useLocation()
   const routeIndex = NAV_ITEMS.findIndex((item) => (item.end ? pathname === item.to : pathname.startsWith(item.to)))
@@ -140,6 +142,7 @@ function NavigationItems({
               <ProfileAvatar
                 username={username}
                 avatarId={avatarId}
+                avatarUrl={avatarUrl}
                 size="sm"
                 className={cn('size-full', isActive && '!ring-0')}
               />
@@ -177,7 +180,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             aria-label="Main"
           >
             {user ? (
-              <NavigationItems username={user.username} avatarId={user.avatar_id} />
+              <NavigationItems username={user.username} avatarId={user.avatar_id} avatarUrl={user.avatar_url} />
             ) : null}
           </nav>
 
@@ -231,7 +234,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       >
         <div className="pointer-events-auto relative grid w-full max-w-md grid-cols-5 items-stretch rounded-full border border-white/15 bg-zinc-900/55 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150">
           {user ? (
-            <NavigationItems compact username={user.username} avatarId={user.avatar_id} />
+            <NavigationItems compact username={user.username} avatarId={user.avatar_id} avatarUrl={user.avatar_url} />
           ) : null}
         </div>
       </nav>

@@ -12,6 +12,7 @@ from app.schemas.library import (
     LibraryCreateRequest,
     LibraryEntryResponse,
     LibraryListResponse,
+    LibrarySummaryResponse,
     LibrarySort,
     LibraryStatus,
     LibraryUpdateRequest,
@@ -31,6 +32,7 @@ from app.services.library import (
     read_library_entry,
     remove_from_library,
     update_library,
+    get_library_summary,
 )
 from app.services.progress import (
     MAX_EPISODE_NUMBER,
@@ -87,6 +89,14 @@ def read_library(
         favorite_only=favorite_only,
         sort_by=sort_by,
     )
+
+
+@router.get("/summary", response_model=LibrarySummaryResponse)
+def read_library_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LibrarySummaryResponse:
+    return get_library_summary(db, current_user)
 
 
 @router.post("", response_model=LibraryEntryResponse, status_code=status.HTTP_201_CREATED)

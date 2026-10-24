@@ -2,13 +2,13 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
-import { fetchLibrary } from '../api/library'
+import { fetchLibrarySummary } from '../api/library'
 import { deleteFollower, fetchFollowers, fetchFollowing, fetchProfile, updatePrivacy } from '../api/sharing'
 import { useAuth } from '../auth/AuthProvider'
+import { CharacterAvatarDialog } from '../components/CharacterAvatarDialog'
 import { useDialog } from '../components/dialogContext'
 import { FollowRequestsSection } from '../components/FollowRequestsSection'
-import { PresetAvatarArt, ProfileAvatar } from '../components/ProfileAvatar'
-import { discoverAvatarPresets, type AvatarPreset } from '../lib/avatarPresets'
+import { ProfileAvatar } from '../components/ProfileAvatar'
 import { UI, cn } from '../lib/ui'
 import type { AvatarId, User } from '../types/auth'
 
@@ -77,7 +77,6 @@ export function ProfilePage() {
   const dialog = useDialog()
   const queryClient = useQueryClient()
   const titleId = useId()
-  const avatarMenuRef = useRef<HTMLDivElement>(null)
   const fieldInputRef = useRef<HTMLInputElement>(null)
   const [email, setEmail] = useState(user?.email ?? '')
   const [username, setUsername] = useState(user?.username ?? '')
@@ -88,21 +87,15 @@ export function ProfilePage() {
   const [profileError, setProfileError] = useState<string | null>(null)
   const [savedField, setSavedField] = useState<EditableField | null>(null)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
-  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false)
   const [connectionList, setConnectionList] = useState<ConnectionList | null>(null)
   const hasUnsavedChanges =
     user != null &&
     ((editingField === 'username' && username.trim() !== user.username) ||
       (editingField === 'email' && email.trim() !== user.email))
-  const avatarPresetsQuery = useQuery({
-    queryKey: ['avatar-presets'],
-    queryFn: discoverAvatarPresets,
-    staleTime: Infinity,
-    enabled: avatarMenuOpen,
-  })
   const collectionQuery = useQuery({
-    queryKey: ['library', 'all', false, 0, '', 'updated'],
-    queryFn: () => fetchLibrary(undefined, 0),
+    queryKey: ['library-summary'],
+    queryFn: fetchLibrarySummary,
   })
   const socialQuery = useQuery({
     queryKey: ['public-profile', user?.username],
@@ -131,8 +124,7 @@ export function ProfilePage() {
       void queryClient.invalidateQueries({ queryKey: ['public-profile', user?.username] })
     },
   })
-  const avatarPresets: AvatarPreset[] = avatarPresetsQuery.data ?? []
-  const summary = collectionQuery.data?.summary
+  const summary = collectionQuery.data
 
   useEffect(() => {
     if (!user || hasUnsavedChanges || editingField) {
@@ -202,28 +194,6 @@ export function ProfilePage() {
     return () => document.removeEventListener('click', onDocumentClick, true)
   }, [hasUnsavedChanges, savingProfile])
 
-  useEffect(() => {
-    if (!avatarMenuOpen) {
-      return
-    }
-    function onPointerDown(event: MouseEvent) {
-      if (!avatarMenuRef.current?.contains(event.target as Node)) {
-        setAvatarMenuOpen(false)
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setAvatarMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [avatarMenuOpen])
-
   if (!user) {
     return null
   }
@@ -246,12 +216,12 @@ export function ProfilePage() {
     setEditingField(null)
   }
 
-  async function selectAvatar(avatarId: AvatarId | null) {
+  async function selectAvatar(avatarId: AvatarId | null, avatarUrl: string | null = null) {
     setAvatarError(null)
     setSavingAvatar(true)
     try {
-      await updateAvatar(avatarId)
-      setAvatarMenuOpen(false)
+      await updateAvatar(avatarId, avatarUrl)
+      setAvatarDialogOpen(false)
     } catch (error) {
       setAvatarError(error instanceof ApiError ? error.message : 'Could not update your avatar.')
     } finally {
@@ -332,62 +302,20 @@ export function ProfilePage() {
 
       <section className="rounded-3xl border border-white/10 bg-zinc-900/55 p-5 sm:p-6">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-          <div ref={avatarMenuRef} className="relative shrink-0">
-            <ProfileAvatar username={user.username} avatarId={user.avatar_id} size="lg" className="size-24 text-2xl" />
+          <div className="relative shrink-0">
+            <ProfileAvatar username={user.username} avatarId={user.avatar_id} avatarUrl={user.avatar_url} size="lg" className="size-24 text-2xl" />
             <button
               type="button"
-              aria-haspopup="listbox"
-              aria-expanded={avatarMenuOpen}
+              aria-haspopup="dialog"
+              aria-expanded={avatarDialogOpen}
               aria-label="Change avatar"
               title="Change avatar"
               disabled={savingAvatar}
-              onClick={() => setAvatarMenuOpen((open) => !open)}
+              onClick={() => setAvatarDialogOpen(true)}
               className="absolute bottom-2 right-0 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] transition hover:text-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:opacity-50"
             >
               <CameraIcon />
             </button>
-            {avatarMenuOpen ? (
-              <div
-                role="listbox"
-                aria-label="Profile avatar choices"
-                className="absolute left-1/2 top-full z-30 mt-3 grid max-h-64 w-64 -translate-x-1/2 grid-cols-5 gap-2 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl"
-              >
-                <button
-                  type="button"
-                  role="option"
-                  aria-label="Use initials"
-                  aria-selected={!user.avatar_id}
-                  disabled={savingAvatar}
-                  onClick={() => void selectAvatar(null)}
-                  className={cn(
-                    'rounded-full transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-50',
-                    !user.avatar_id && 'ring-2 ring-indigo-300',
-                  )}
-                >
-                  <ProfileAvatar username={user.username} size="sm" className="size-10 text-xs" />
-                </button>
-                {avatarPresets.map((avatar) => {
-                  const selected = user.avatar_id === avatar.id
-                  return (
-                    <button
-                      key={avatar.id}
-                      type="button"
-                      role="option"
-                      aria-label={`Avatar ${avatar.id}`}
-                      aria-selected={selected}
-                      disabled={savingAvatar}
-                      onClick={() => void selectAvatar(avatar.id)}
-                      className={cn(
-                        'rounded-full transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-50',
-                        selected && 'ring-2 ring-indigo-300',
-                      )}
-                    >
-                      <PresetAvatarArt avatarId={avatar.id} className="size-10" />
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
           </div>
 
           <form onSubmit={saveProfile} className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
@@ -475,9 +403,6 @@ export function ProfilePage() {
 
             {savingAvatar ? <p className="text-xs text-zinc-400" role="status">Updating avatar…</p> : null}
             {avatarError ? <p className="text-xs text-rose-300" role="alert">{avatarError}</p> : null}
-            {avatarPresetsQuery.isPending && avatarMenuOpen ? (
-              <p className="text-xs text-zinc-400" role="status">Loading avatars…</p>
-            ) : null}
             {profileError ? <p className="text-sm text-rose-300" role="alert">{profileError}</p> : null}
 
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-zinc-400 sm:justify-start">
@@ -550,7 +475,7 @@ export function ProfilePage() {
                       to={`/users/${encodeURIComponent(person.username)}`}
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-white/5"
                     >
-                      <ProfileAvatar username={person.username} avatarId={person.avatar_id} size="sm" />
+                      <ProfileAvatar username={person.username} avatarId={person.avatar_id} avatarUrl={person.avatar_url} size="sm" />
                       <span className="min-w-0 truncate text-sm text-zinc-100">{person.username}</span>
                       {person.profile_public ? null : (
                         <span className="text-xs text-zinc-500">Private</span>
@@ -589,6 +514,14 @@ export function ProfilePage() {
           </div>
         ) : null}
       </section>
+      {avatarDialogOpen ? (
+        <CharacterAvatarDialog
+          username={user.username}
+          avatarUrl={user.avatar_url}
+          onSelect={(avatarId, avatarUrl) => void selectAvatar(avatarId, avatarUrl)}
+          onClose={() => setAvatarDialogOpen(false)}
+        />
+      ) : null}
       <FollowRequestsSection />
       <section aria-labelledby={`${titleId}-collection`} className="space-y-3">
         <div className="flex items-end justify-between gap-3">

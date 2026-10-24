@@ -21,6 +21,7 @@ export type PrivacySettings = {
 export type UserSearchResult = {
   username: string
   avatar_id: string | null
+  avatar_url: string | null
   profile_public: boolean
   follower_count: number | null
   is_self: boolean
@@ -39,6 +40,7 @@ export type FollowState = 'pending' | 'accepted'
 export type PublicProfile = {
   username: string
   avatar_id: string | null
+  avatar_url: string | null
   is_self: boolean
   profile_public: boolean
   follow_state: FollowState | null
@@ -53,11 +55,13 @@ export type PublicProfile = {
 export type FollowRequestItem = {
   username: string
   avatar_id: string | null
+  avatar_url: string | null
 }
 
 export type FollowConnection = {
   username: string
   avatar_id: string | null
+  avatar_url: string | null
   profile_public: boolean
 }
 

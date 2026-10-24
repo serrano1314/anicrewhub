@@ -91,7 +91,22 @@ def update_avatar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> User:
+    if body.avatar_id is not None and body.avatar_url is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Choose either a preset avatar or an AniList character avatar",
+        )
+    if body.avatar_url is not None:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(body.avatar_url)
+        if parsed.scheme != "https" or parsed.hostname not in {"s4.anilist.co", "img.anili.st"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Avatar image must come from AniList",
+            )
     current_user.avatar_id = body.avatar_id
+    current_user.avatar_url = body.avatar_url
     db.commit()
     db.refresh(current_user)
     return current_user

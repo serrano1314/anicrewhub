@@ -15,6 +15,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     profile_public: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
     share_collection: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
     share_favorites_only: Mapped[bool] = mapped_column(default=False, server_default="false", nullable=False)

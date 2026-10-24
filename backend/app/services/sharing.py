@@ -171,6 +171,7 @@ def search_users(db: Session, viewer: User, query: str, page: int) -> UserSearch
             UserSearchResult(
                 username=user.username,
                 avatar_id=user.avatar_id,
+                avatar_url=user.avatar_url,
                 profile_public=user.profile_public,
                 follower_count=int(count) if _can_see_counts(db, viewer, user) else None,
                 is_self=user.id == viewer.id,
@@ -200,6 +201,7 @@ def read_profile(db: Session, viewer: User, username: str) -> ProfileResponse:
     return ProfileResponse(
         username=owner.username,
         avatar_id=owner.avatar_id,
+        avatar_url=owner.avatar_url,
         is_self=viewer.id == owner.id,
         profile_public=owner.profile_public,
         follow_state=None if follow is None else follow.status,
@@ -227,6 +229,7 @@ def _accepted_connections(db: Session, *, follower_id: UUID | None = None, follo
         FollowConnectionItem(
             username=user.username,
             avatar_id=user.avatar_id,
+            avatar_url=user.avatar_url,
             profile_public=user.profile_public,
         )
         for user in users
@@ -248,7 +251,10 @@ def list_follow_requests(db: Session, owner: User) -> list[FollowRequestItem]:
         .where(UserFollow.followed_id == owner.id, UserFollow.status == FOLLOW_PENDING)
         .order_by(UserFollow.created_at.asc())
     ).scalars()
-    return [FollowRequestItem(username=user.username, avatar_id=user.avatar_id) for user in rows]
+    return [
+        FollowRequestItem(username=user.username, avatar_id=user.avatar_id, avatar_url=user.avatar_url)
+        for user in rows
+    ]
 
 
 def follow_user(db: Session, viewer: User, username: str) -> ProfileResponse:

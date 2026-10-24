@@ -15,6 +15,7 @@ from app.schemas.anime import (
     AnimeReviewsResponse,
     AnimeSearchResponse,
     AnimeTag,
+    CharacterAvatar,
     ExternalLink,
     RelatedAnime,
 )
@@ -146,6 +147,36 @@ query ($id: Int, $page: Int, $perPage: Int, $sort: [ReviewSort]) {
             large
           }
         }
+      }
+    }
+  }
+}
+"""
+
+CHARACTER_SEARCH_QUERY = """
+query ($search: String, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    characters(search: $search, sort: SEARCH_MATCH) {
+      id
+      name { full }
+      image { large medium }
+      media(perPage: 1) {
+        nodes { title { romaji english } }
+      }
+    }
+  }
+}
+"""
+
+MEDIA_CHARACTERS_QUERY = """
+query ($id: Int, $perPage: Int) {
+  Media(id: $id, type: ANIME) {
+    title { romaji english }
+    characters(perPage: $perPage, sort: ROLE) {
+      nodes {
+        id
+        name { full }
+        image { large medium }
       }
     }
   }
@@ -381,7 +412,6 @@ def map_media(media: object) -> AnimeData | None:
             or _as_str(cover.get("large"))
             or _as_str(cover.get("medium"))
         )
-
     links: list[ExternalLink] = []
     raw_links = media.get("externalLinks")
     if isinstance(raw_links, list):
@@ -413,6 +443,30 @@ def map_media(media: object) -> AnimeData | None:
         season_year=_as_int(media.get("seasonYear")),
         external_links=links,
         details=_map_details(media),
+    )
+
+
+def map_character_avatar(character: object, anime_title: str | None = None) -> CharacterAvatar | None:
+    if not isinstance(character, dict):
+        return None
+    character_id = _as_int(character.get("id"))
+    name = character.get("name")
+    image = character.get("image")
+    character_name = name.get("full") if isinstance(name, dict) else None
+    image_url = (
+        image.get("large") or image.get("medium")
+        if isinstance(image, dict)
+        else None
+    )
+    if character_id is None or not isinstance(character_name, str) or not character_name.strip():
+        return None
+    if not isinstance(image_url, str) or not image_url.strip():
+        return None
+    return CharacterAvatar(
+        anilist_id=character_id,
+        name=character_name.strip(),
+        image_url=image_url,
+        anime_title=anime_title,
     )
 
 
@@ -493,6 +547,58 @@ class AniListClient:
         )
         self._cache.set(key, result)
         return result
+
+    def search_characters(self, query: str, page: int = 1) -> list[CharacterAvatar]:
+        payload = self._post(
+            CHARACTER_SEARCH_QUERY,
+            {"search": normalize_search_query(query), "page": page, "perPage": 10},
+        )
+        data = payload.get("data")
+        page_data = data.get("Page") if isinstance(data, dict) else None
+        raw_characters = page_data.get("characters") if isinstance(page_data, dict) else None
+        if not isinstance(raw_characters, list):
+            raise AniListUnavailable("AniList returned an unexpected character search payload")
+
+        results: list[CharacterAvatar] = []
+        for character in raw_characters:
+            anime_title: str | None = None
+            if isinstance(character, dict):
+                media = character.get("media")
+                nodes = media.get("nodes") if isinstance(media, dict) else None
+                first_media = nodes[0] if isinstance(nodes, list) and nodes else None
+                title = first_media.get("title") if isinstance(first_media, dict) else None
+                if isinstance(title, dict):
+                    anime_title = _as_str(title.get("english")) or _as_str(title.get("romaji"))
+            mapped = map_character_avatar(character, anime_title)
+            if mapped is not None:
+                results.append(mapped)
+        return results
+
+    def fetch_characters(self, anilist_id: int, limit: int = 10) -> list[CharacterAvatar]:
+        payload = self._post(
+            MEDIA_CHARACTERS_QUERY,
+            {"id": anilist_id, "perPage": limit},
+        )
+        data = payload.get("data")
+        media = data.get("Media") if isinstance(data, dict) else None
+        if not isinstance(media, dict):
+            raise AniListNotFound("Anime not found")
+        title = media.get("title")
+        anime_title = (
+            _as_str(title.get("english")) or _as_str(title.get("romaji"))
+            if isinstance(title, dict)
+            else None
+        )
+        characters = media.get("characters")
+        nodes = characters.get("nodes") if isinstance(characters, dict) else None
+        if not isinstance(nodes, list):
+            raise AniListUnavailable("AniList returned an unexpected character payload")
+        results: list[CharacterAvatar] = []
+        for character in nodes:
+            mapped = map_character_avatar(character, anime_title)
+            if mapped is not None:
+                results.append(mapped)
+        return results
 
     def discover(self, kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
         key = (f"discover:{kind.value}", 1)
