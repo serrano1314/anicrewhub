@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,12 +18,24 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email.lower()))
 
 
+def _ensure_username_available(db: Session, username: str, current_user_id: UUID | None = None) -> None:
+    query = select(User.id).where(func.lower(User.username) == username.lower())
+    if current_user_id is not None:
+        query = query.where(User.id != current_user_id)
+    if db.scalar(query.limit(1)) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email or username already taken",
+        )
+
+
 def register_user(db: Session, email: str, username: str, password: str, terms_version: str) -> User:
     if terms_version != CURRENT_TERMS_VERSION:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Accept the current terms to create an account",
         )
+    _ensure_username_available(db, username)
     user = User(
         email=email.lower(),
         username=username,
@@ -44,6 +56,7 @@ def register_user(db: Session, email: str, username: str, password: str, terms_v
 
 
 def update_user_profile(db: Session, user: User, email: str, username: str) -> User:
+    _ensure_username_available(db, username, user.id)
     user.email = email.lower()
     user.username = username
     try:
