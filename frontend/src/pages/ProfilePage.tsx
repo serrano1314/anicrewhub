@@ -98,6 +98,7 @@ export function ProfilePage() {
     queryKey: ['avatar-presets'],
     queryFn: discoverAvatarPresets,
     staleTime: Infinity,
+    enabled: avatarMenuOpen,
   })
   const collectionQuery = useQuery({
     queryKey: ['library', 'all', false, 0, '', 'updated'],
