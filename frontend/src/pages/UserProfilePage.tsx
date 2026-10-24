@@ -126,7 +126,7 @@ export function UserProfilePage() {
     <div className={UI.page}>
       <BackLink />
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <ProfileAvatar username={profile.username} avatarId={profile.avatar_id} size="lg" className="size-20" />
+        <ProfileAvatar username={profile.username} avatarId={profile.avatar_id} avatarUrl={profile.avatar_url} size="lg" className="size-20" />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-semibold tracking-tight text-zinc-50">{profile.username}</h1>
           <p className="mt-1 text-sm text-zinc-400">

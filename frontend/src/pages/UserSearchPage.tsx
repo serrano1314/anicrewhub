@@ -161,7 +161,7 @@ export function UserSearchPage() {
                   state={{ back: backFromUserSearch(new URLSearchParams(trimmed ? { q: trimmed, ...(page > 1 ? { page: String(page) } : {}) } : {})) }}
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-1 transition hover:text-indigo-100"
                 >
-                  <ProfileAvatar username={result.username} avatarId={result.avatar_id} size="sm" />
+                  <ProfileAvatar username={result.username} avatarId={result.avatar_id} avatarUrl={result.avatar_url} size="sm" />
                   <span className="min-w-0 truncate font-medium text-zinc-50">{result.username}</span>
                   {!result.profile_public ? <span className="sr-only">Private</span> : null}
                 </Link>

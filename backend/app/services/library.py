@@ -26,6 +26,31 @@ from app.services.episode_progress import (
 LIBRARY_PAGE_SIZE = 12
 
 
+def get_library_summary(db: Session, user: User) -> LibrarySummaryResponse:
+    summary_values = db.execute(
+        select(
+            func.count(UserAnime.id),
+            func.coalesce(func.sum(case((UserAnime.is_favorite.is_(True), 1), else_=0)), 0),
+            *[
+                func.coalesce(
+                    func.sum(case((UserAnime.status == library_status.value, 1), else_=0)),
+                    0,
+                )
+                for library_status in LibraryStatus
+            ],
+        ).where(UserAnime.user_id == user.id)
+    ).one()
+    return LibrarySummaryResponse(
+        total=int(summary_values[0]),
+        favorites=int(summary_values[1]),
+        watching=int(summary_values[2]),
+        completed=int(summary_values[3]),
+        plan_to_watch=int(summary_values[4]),
+        on_hold=int(summary_values[5]),
+        dropped=int(summary_values[6]),
+    )
+
+
 def list_library(
     db: Session,
     user: User,
@@ -104,19 +129,7 @@ def list_library(
     total_count = db.scalar(
         select(func.count()).select_from(UserAnime).where(UserAnime.user_id == user.id)
     ) or 0
-    summary_values = db.execute(
-        select(
-            func.count(UserAnime.id),
-            func.coalesce(func.sum(case((UserAnime.is_favorite.is_(True), 1), else_=0)), 0),
-            *[
-                func.coalesce(
-                    func.sum(case((UserAnime.status == library_status.value, 1), else_=0)),
-                    0,
-                )
-                for library_status in LibraryStatus
-            ],
-        ).where(UserAnime.user_id == user.id)
-    ).one()
+    summary = get_library_summary(db, user)
     filtered_count = db.scalar(
         select(func.count())
         .select_from(UserAnime)
@@ -135,15 +148,7 @@ def list_library(
         has_more=has_more,
         next_offset=next_offset,
         total_count=total_count,
-        summary=LibrarySummaryResponse(
-            total=int(summary_values[0]),
-            favorites=int(summary_values[1]),
-            watching=int(summary_values[2]),
-            completed=int(summary_values[3]),
-            plan_to_watch=int(summary_values[4]),
-            on_hold=int(summary_values[5]),
-            dropped=int(summary_values[6]),
-        ),
+        summary=summary,
     )
 
 

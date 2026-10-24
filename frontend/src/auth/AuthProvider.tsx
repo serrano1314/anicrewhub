@@ -22,7 +22,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, username: string, password: string, termsVersion: string) => Promise<void>
   acceptTerms: () => Promise<void>
-  updateAvatar: (avatarId: AvatarId | null) => Promise<void>
+  updateAvatar: (avatarId: AvatarId | null, avatarUrl?: string | null) => Promise<void>
   updateProfile: (email: string, username: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -136,8 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyToken, queryClient])
 
   const updateAvatar = useCallback(
-    async (avatarId: AvatarId | null) => {
-      const user = await updateAvatarRequest(avatarId)
+    async (avatarId: AvatarId | null, avatarUrl: string | null = null) => {
+      const user = await updateAvatarRequest(avatarId, avatarUrl)
       queryClient.setQueryData(['me'], user)
     },
     [queryClient],

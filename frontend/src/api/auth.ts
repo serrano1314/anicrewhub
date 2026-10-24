@@ -54,10 +54,10 @@ export async function fetchMe(): Promise<User> {
   return (await response.json()) as User
 }
 
-export async function updateAvatar(avatarId: AvatarId | null): Promise<User> {
+export async function updateAvatar(avatarId: AvatarId | null, avatarUrl: string | null = null): Promise<User> {
   const response = await apiFetch('/api/v1/auth/me/avatar', {
     method: 'PATCH',
-    body: JSON.stringify({ avatar_id: avatarId }),
+    body: JSON.stringify({ avatar_id: avatarId, avatar_url: avatarUrl }),
   })
   if (!response.ok) {
     throw await readApiError(response)

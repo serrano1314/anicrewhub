@@ -1,6 +1,7 @@
 import type {
   LibraryEntry,
   LibraryListResponse,
+  LibrarySummary,
   LibrarySort,
   LibraryStatus,
   ProgressState,
@@ -43,6 +44,12 @@ export function fetchLibrary(
       totalCount: data.total_count,
       summary: data.summary,
     }))
+}
+
+export function fetchLibrarySummary(): Promise<LibrarySummary> {
+  return apiFetch('/api/v1/library/summary').then((response) =>
+    readJson<LibrarySummary>(response),
+  )
 }
 
 export function addToLibrary(anilistId: number, status: LibraryStatus): Promise<LibraryEntry> {

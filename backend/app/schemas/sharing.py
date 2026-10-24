@@ -37,6 +37,7 @@ class PrivacyUpdateRequest(BaseModel):
 class UserSearchResult(BaseModel):
     username: str
     avatar_id: str | None
+    avatar_url: str | None = None
     profile_public: bool
     follower_count: int | None
     is_self: bool = False
@@ -53,6 +54,7 @@ class UserSearchResponse(BaseModel):
 class ProfileResponse(BaseModel):
     username: str
     avatar_id: str | None
+    avatar_url: str | None = None
     is_self: bool
     profile_public: bool
     follow_state: str | None
@@ -67,11 +69,13 @@ class ProfileResponse(BaseModel):
 class FollowRequestItem(BaseModel):
     username: str
     avatar_id: str | None
+    avatar_url: str | None = None
 
 
 class FollowConnectionItem(BaseModel):
     username: str
     avatar_id: str | None
+    avatar_url: str | None = None
     profile_public: bool
 
 

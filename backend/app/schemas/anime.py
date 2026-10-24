@@ -98,3 +98,15 @@ class AnimeSearchResponse(BaseModel):
     page: int
     has_next_page: bool
     results: list[AnimeData]
+
+
+class CharacterAvatar(BaseModel):
+    anilist_id: int
+    name: str
+    image_url: str
+    anime_title: str | None = None
+
+
+class CharacterAvatarResponse(BaseModel):
+    results: list[CharacterAvatar]
+    has_more: bool = False
