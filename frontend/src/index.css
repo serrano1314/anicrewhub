@@ -237,7 +237,7 @@ body {
 
 /* Modern scrollbars (Firefox + WebKit) */
 html {
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 body,
@@ -249,10 +249,6 @@ body,
 }
 
 html {
-  overflow-x: clip;
-}
-
-body {
   overflow-x: hidden;
 }
 
