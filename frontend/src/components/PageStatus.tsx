@@ -74,7 +74,7 @@ export function RateLimitRecovery({ retryAfterSeconds, onRetry }: RateLimitRecov
       role="status"
       aria-live="polite"
     >
-      <p className="text-sm text-zinc-300">AniList is temporarily rate-limited.</p>
+      <p className="text-sm text-zinc-300">Getting things ready…</p>
       <div
         className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.08]"
         role="progressbar"
