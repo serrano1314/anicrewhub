@@ -10,6 +10,7 @@ import { displayTitle, metaLine } from '../lib/display'
 import { renderAnimeDescription } from '../lib/animeDescription'
 import { episodeCountLabel } from '../lib/episodes'
 import { UI, cn } from '../lib/ui'
+import { RateLimitRecovery } from './PageStatus'
 import type { LibraryStatus } from '../types/library'
 
 const CATEGORIES = [
@@ -279,16 +280,23 @@ export function AnimeSpotlightCarousel({
       </div>
 
       {discoveryQuery.isError ? (
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/40 px-4 py-6 text-center">
-          <p className="text-sm text-zinc-400">Anime picks are temporarily unavailable.</p>
-          <button
-            type="button"
-            onClick={() => void discoveryQuery.refetch()}
-            className="mt-2 text-sm font-medium text-indigo-300 hover:text-indigo-200"
-          >
-            Try again
-          </button>
-        </div>
+        discoveryQuery.error instanceof ApiError && discoveryQuery.error.status === 429 ? (
+          <RateLimitRecovery
+            retryAfterSeconds={discoveryQuery.error.retryAfterSeconds}
+            onRetry={() => void discoveryQuery.refetch()}
+          />
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/40 px-4 py-6 text-center">
+            <p className="text-sm text-zinc-400">Anime picks are temporarily unavailable.</p>
+            <button
+              type="button"
+              onClick={() => void discoveryQuery.refetch()}
+              className="mt-2 text-sm font-medium text-indigo-300 hover:text-indigo-200"
+            >
+              Try again
+            </button>
+          </div>
+        )
       ) : discoveryQuery.isPending ? (
         <div
           aria-hidden="true"

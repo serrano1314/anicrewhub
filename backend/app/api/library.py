@@ -54,6 +54,11 @@ def _translate(exc: AniListError) -> HTTPException:
         return HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="AniList rate limit reached. Try again shortly.",
+            headers=(
+                {"Retry-After": str(max(1, round(exc.retry_after)))}
+                if exc.retry_after is not None
+                else None
+            ),
         )
     return HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,

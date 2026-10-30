@@ -1,10 +1,12 @@
 export class ApiError extends Error {
   readonly status: number
+  readonly retryAfterSeconds: number | null
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, retryAfterSeconds: number | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -62,7 +64,17 @@ export async function readApiError(response: Response): Promise<ApiError> {
       message = 'Invalid request'
     }
   }
-  return new ApiError(message, response.status)
+  const retryAfterHeader = response.headers.get('Retry-After')
+  const parsedRetryAfter = retryAfterHeader != null ? Number(retryAfterHeader) : null
+  const retryAfterSeconds =
+    parsedRetryAfter != null && Number.isFinite(parsedRetryAfter) && parsedRetryAfter >= 0
+      ? parsedRetryAfter
+      : null
+  return new ApiError(
+    message,
+    response.status,
+    retryAfterSeconds,
+  )
 }
 
 function canRenewSession(path: string): boolean {

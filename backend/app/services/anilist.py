@@ -1,4 +1,5 @@
 import logging
+import math
 import threading
 import time
 from datetime import datetime, timezone
@@ -203,7 +204,9 @@ class AniListNotFound(AniListError):
 
 
 class AniListRateLimited(AniListError):
-    pass
+    def __init__(self, message: str = "AniList rate limit reached", retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class AniListUnavailable(AniListError):
@@ -798,12 +801,16 @@ class AniListClient:
             with self._rate_limit_lock:
                 cooldown_until = self._rate_limit_until
             if not retry_on_rate_limit and now < cooldown_until:
+                retry_after = max(1, math.ceil(cooldown_until - now))
                 logger.warning(
                     "anilist_rate_limit_cooldown request_id=%s remaining_seconds=%.2f",
                     request_id_context.get(),
                     cooldown_until - now,
                 )
-                raise AniListRateLimited("AniList rate limit cooldown active")
+                raise AniListRateLimited(
+                    "AniList rate limit cooldown active",
+                    retry_after=retry_after,
+                )
 
             started_at = time.perf_counter()
             logger.info(
@@ -852,7 +859,10 @@ class AniListClient:
                             self._rate_limit_until,
                             time.monotonic() + cooldown_seconds,
                         )
-                    raise AniListRateLimited("AniList rate limit")
+                    raise AniListRateLimited(
+                        "AniList rate limit",
+                        retry_after=cooldown_seconds,
+                    )
                 if attempt >= MAX_ATTEMPTS:
                     raise AniListRateLimited("AniList rate limit")
                 self._sleep(_retry_delay(response, attempt))
