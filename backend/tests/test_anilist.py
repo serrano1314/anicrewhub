@@ -368,6 +368,20 @@ def test_search_cache_expires() -> None:
     assert len(http.calls) == 2
 
 
+def test_search_fails_fast_when_rate_limited() -> None:
+    http = FakeHttp([httpx.Response(429)])
+    client = AniListClient(http)
+
+    try:
+        client.search("one piece", 1)
+    except AniListRateLimited:
+        pass
+    else:
+        raise AssertionError("expected rate limit")
+
+    assert len(http.calls) == 1
+
+
 def test_rate_limit_backoff_then_success() -> None:
     delays: list[float] = []
     http = FakeHttp(
@@ -377,7 +391,7 @@ def test_rate_limit_backoff_then_success() -> None:
         ]
     )
     client = AniListClient(http, sleep=delays.append)
-    media = client.fetch_media(21)
+    media = client.fetch_media(21, retry_on_rate_limit=True)
     assert media.anilist_id == 21
     assert "relations" not in http.calls[1]["json"]["query"]
     assert delays == [2.0]
@@ -389,7 +403,7 @@ def test_rate_limit_gives_up_after_three_attempts() -> None:
     http = FakeHttp([httpx.Response(429), httpx.Response(429), httpx.Response(429)])
     client = AniListClient(http, sleep=delays.append)
     try:
-        client.fetch_media(21)
+        client.fetch_media(21, retry_on_rate_limit=True)
     except AniListRateLimited:
         pass
     else:

@@ -533,10 +533,22 @@ class AniListClient:
             key,
         )
 
-        payload = self._post(
-            SEARCH_QUERY,
-            {"search": normalized, "page": page, "perPage": SEARCH_PER_PAGE},
-        )
+        try:
+            payload = self._post(
+                SEARCH_QUERY,
+                {"search": normalized, "page": page, "perPage": SEARCH_PER_PAGE},
+                retry_on_rate_limit=False,
+            )
+        except (AniListRateLimited, AniListUnavailable):
+            stale = self._cache.get_stale(key)
+            if stale is not None:
+                logger.warning(
+                    "anilist_stale_cache_served request_id=%s cache=search key=%s",
+                    request_id_context.get(),
+                    key,
+                )
+                return stale
+            raise
         data = payload.get("data")
         page_data = data.get("Page") if isinstance(data, dict) else None
         if not isinstance(page_data, dict):
@@ -681,8 +693,12 @@ class AniListClient:
         self._discovery_cache.set(key, result)
         return result
 
-    def fetch_media(self, anilist_id: int) -> AnimeData:
-        payload = self._post(MEDIA_QUERY, {"id": anilist_id})
+    def fetch_media(self, anilist_id: int, *, retry_on_rate_limit: bool = False) -> AnimeData:
+        payload = self._post(
+            MEDIA_QUERY,
+            {"id": anilist_id},
+            retry_on_rate_limit=retry_on_rate_limit,
+        )
         data = payload.get("data")
         media = data.get("Media") if isinstance(data, dict) else None
         if media is None:
@@ -769,7 +785,7 @@ class AniListClient:
         query: str,
         variables: dict[str, object],
         *,
-        retry_on_rate_limit: bool = True,
+        retry_on_rate_limit: bool = False,
     ) -> dict[str, object]:
         body: dict[str, object] = {"query": query, "variables": variables}
         attempt = 0
