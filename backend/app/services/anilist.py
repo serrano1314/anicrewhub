@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from collections.abc import Callable
@@ -27,7 +28,7 @@ from app.schemas.anime import (
 ANILIST_URL = "https://graphql.anilist.co"
 SEARCH_PER_PAGE = 12
 MAX_ATTEMPTS = 3
-MAX_RETRY_AFTER_SECONDS = 30.0
+MAX_RETRY_AFTER_SECONDS = 60.0
 
 _MEDIA_SELECTION = """
   id
@@ -511,6 +512,8 @@ class AniListClient:
     ) -> None:
         self._http = http_client or httpx.Client(timeout=get_settings().ANILIST_TIMEOUT_SECONDS)
         self._sleep = sleep
+        self._rate_limit_lock = threading.Lock()
+        self._rate_limit_until = 0.0
         self._cache = TtlCache(search_ttl_seconds, clock)
         self._discovery_cache = TtlCache(discovery_ttl_seconds, clock)
 
@@ -791,6 +794,17 @@ class AniListClient:
         attempt = 0
         while True:
             attempt += 1
+            now = time.monotonic()
+            with self._rate_limit_lock:
+                cooldown_until = self._rate_limit_until
+            if not retry_on_rate_limit and now < cooldown_until:
+                logger.warning(
+                    "anilist_rate_limit_cooldown request_id=%s remaining_seconds=%.2f",
+                    request_id_context.get(),
+                    cooldown_until - now,
+                )
+                raise AniListRateLimited("AniList rate limit cooldown active")
+
             started_at = time.perf_counter()
             logger.info(
                 "anilist_request_started request_id=%s method=POST attempt=%s variables=%s",
@@ -829,6 +843,15 @@ class AniListClient:
 
             if response.status_code == 429:
                 if not retry_on_rate_limit:
+                    cooldown_seconds = min(
+                        _retry_delay(response, attempt),
+                        MAX_RETRY_AFTER_SECONDS,
+                    )
+                    with self._rate_limit_lock:
+                        self._rate_limit_until = max(
+                            self._rate_limit_until,
+                            time.monotonic() + cooldown_seconds,
+                        )
                     raise AniListRateLimited("AniList rate limit")
                 if attempt >= MAX_ATTEMPTS:
                     raise AniListRateLimited("AniList rate limit")

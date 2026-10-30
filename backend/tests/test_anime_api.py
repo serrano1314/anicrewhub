@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.anime import Anime
+from app.models.discovery import AnimeDiscoverySnapshot
 from app.schemas.anime import (
     AnimeData,
     AnimeDetails,
@@ -97,6 +98,9 @@ def test_discovery_is_public_and_does_not_save_anime(
     assert response.json()["results"][0]["anilist_id"] == 21
     assert response.json()["results"][0]["average_score"] is None
     assert db.scalar(select(func.count()).select_from(Anime)) == 0
+    snapshot = db.get(AnimeDiscoverySnapshot, "trending")
+    assert snapshot is not None
+    assert snapshot.payload["results"][0]["anilist_id"] == 21
 
 
 def test_search_returns_mapped_results_without_saving(

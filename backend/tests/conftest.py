@@ -19,6 +19,7 @@ from app.db.session import get_db
 from app.core.rate_limit import reset_rate_limits_for_tests
 from app.main import app
 from app.models.anime import Anime as AnimeModel
+from app.models.discovery import AnimeDiscoverySnapshot as AnimeDiscoverySnapshotModel
 from app.models.extension import ExtensionTitleMap as ExtensionTitleMapModel
 from app.models.extension import ExtensionToken as ExtensionTokenModel
 from app.models.library import EpisodeProgress as EpisodeProgressModel
@@ -33,6 +34,7 @@ from app.models.social import UserFollow as UserFollowModel
 from app.models.user import User as UserModel
 
 _ = AnimeModel
+_ = AnimeDiscoverySnapshotModel
 _ = EpisodeProgressModel
 _ = ExtensionTitleMapModel
 _ = ExtensionTokenModel

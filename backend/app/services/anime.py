@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.models.anime import Anime
 from app.schemas.anime import AnimeData, AnimeDiscoveryKind, AnimeSearchResponse
 from app.services.anilist import get_anilist_client
+from app.services.discovery_cache import get_discovery_snapshot, save_discovery_snapshot
 
 
 class AnimeSource(Protocol):
@@ -27,9 +28,20 @@ def search_anime(
     return anilist.search(query, page)
 
 
-def discover_anime(kind: AnimeDiscoveryKind, client: AnimeSource | None = None) -> AnimeSearchResponse:
+def discover_anime(
+    kind: AnimeDiscoveryKind,
+    client: AnimeSource | None = None,
+    db: Session | None = None,
+) -> AnimeSearchResponse:
+    if db is not None:
+        cached = get_discovery_snapshot(db, kind)
+        if cached is not None:
+            return cached
     anilist = client or get_anilist_client()
-    return anilist.discover(kind)
+    response = anilist.discover(kind)
+    if db is not None:
+        save_discovery_snapshot(db, kind, response)
+    return response
 
 
 def get_anime(
