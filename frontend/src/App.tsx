@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { ApiError } from './api/client'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { AppShell } from './components/AppShell'
 import { AuthPageLayout } from './components/AuthPageLayout'
@@ -23,7 +24,18 @@ import { TermsPage } from './pages/TermsPage'
 import { UserProfilePage } from './pages/UserProfilePage'
 import { UserSearchPage } from './pages/UserSearchPage'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status === 429) {
+          return false
+        }
+        return failureCount < 2
+      },
+    },
+  },
+})
 
 function HomePage() {
   const { isReady, isAuthenticated, authError, user } = useAuth()
