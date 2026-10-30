@@ -14,6 +14,7 @@ from app.api.release_notes import router as release_notes_router
 from app.api.sharing import router as sharing_router
 from app.api.sites import router as sites_router
 from app.core.config import get_settings
+from app.core.discovery_refresh import discovery_refresh_lifespan
 from app.core.keep_alive import keep_alive_lifespan
 from app.core.request_logging import RequestResponseLoggingMiddleware
 from app.db.session import engine
@@ -32,9 +33,9 @@ logging.basicConfig(
 # 1. Define a clean FastAPI-compatible lifespan wrapper
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Delegate implementation cleanly to your original parameterized context manager
     async with keep_alive_lifespan(enabled=settings.KEEP_ALIVE_ENABLED):
-        yield
+        async with discovery_refresh_lifespan():
+            yield
 
 
 # 2. Pass the signature of the wrapper function directly to FastAPI

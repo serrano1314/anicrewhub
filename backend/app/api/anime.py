@@ -66,8 +66,11 @@ def search(
 
 
 @router.get("/discover/{kind}", response_model=AnimeSearchResponse)
-def discover(kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
-    return _call(lambda: discover_anime(kind))
+def discover(
+    kind: AnimeDiscoveryKind,
+    db: Session = Depends(get_db),
+) -> AnimeSearchResponse:
+    return _call(lambda: discover_anime(kind, db=db))
 
 
 @router.get("/characters", response_model=CharacterAvatarResponse)
