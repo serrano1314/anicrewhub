@@ -17,7 +17,7 @@ import {
 } from '../api/library'
 import { AnimeSitesSection } from '../components/AnimeSitesSection'
 import { SectionIcon } from '../components/SectionIcon'
-import { ErrorPanel, LoadingIndicator } from '../components/PageStatus'
+import { ErrorPanel, LoadingIndicator, RateLimitRecovery } from '../components/PageStatus'
 import { EpisodeGrid } from '../components/EpisodeGrid'
 import { ProgressMeter } from '../components/ProgressMeter'
 import { StarRating } from '../components/StarRating'
@@ -308,12 +308,17 @@ export function AnimeDetailPage() {
     return (
       <div className="space-y-3">
         <BackLink />
-        <ErrorPanel
-          message={errorText(animeQuery.error, 'Could not load this anime')}
-          onRetry={() => {
-            void animeQuery.refetch()
-          }}
-        />
+        {animeQuery.error instanceof ApiError && animeQuery.error.status === 429 ? (
+          <RateLimitRecovery
+            retryAfterSeconds={animeQuery.error.retryAfterSeconds}
+            onRetry={() => void animeQuery.refetch()}
+          />
+        ) : (
+          <ErrorPanel
+            message={errorText(animeQuery.error, 'Could not load this anime')}
+            onRetry={() => void animeQuery.refetch()}
+          />
+        )}
       </div>
     )
   }
@@ -778,12 +783,17 @@ export function AnimeDetailPage() {
         >
           {relatedAnimeQuery.isPending ? <LoadingIndicator label="Loading related anime…" /> : null}
           {relatedAnimeQuery.isError ? (
-            <ErrorPanel
-              message={errorText(relatedAnimeQuery.error, 'Could not load related anime')}
-              onRetry={() => {
-                void relatedAnimeQuery.refetch()
-              }}
-            />
+            relatedAnimeQuery.error instanceof ApiError && relatedAnimeQuery.error.status === 429 ? (
+              <RateLimitRecovery
+                retryAfterSeconds={relatedAnimeQuery.error.retryAfterSeconds}
+                onRetry={() => void relatedAnimeQuery.refetch()}
+              />
+            ) : (
+              <ErrorPanel
+                message={errorText(relatedAnimeQuery.error, 'Could not load related anime')}
+                onRetry={() => void relatedAnimeQuery.refetch()}
+              />
+            )
           ) : null}
           {relatedAnimeQuery.isSuccess && relatedAnimeQuery.data.length === 0 ? (
             <p className="text-sm text-zinc-400">No related anime found.</p>
@@ -1076,10 +1086,17 @@ export function AnimeDetailPage() {
             {reviewsQuery.isPending && !reviewsQuery.data ? (
               <LoadingIndicator label="Loading reviews…" />
             ) : reviewsQuery.error ? (
-              <ErrorPanel
-                message={errorText(reviewsQuery.error, 'Unable to load reviews.')}
-                onRetry={() => { void reviewsQuery.refetch() }}
-              />
+              reviewsQuery.error instanceof ApiError && reviewsQuery.error.status === 429 ? (
+                <RateLimitRecovery
+                  retryAfterSeconds={reviewsQuery.error.retryAfterSeconds}
+                  onRetry={() => void reviewsQuery.refetch()}
+                />
+              ) : (
+                <ErrorPanel
+                  message={errorText(reviewsQuery.error, 'Unable to load reviews.')}
+                  onRetry={() => void reviewsQuery.refetch()}
+                />
+              )
             ) : reviewItems.length === 0 ? (
               <p className="text-sm text-zinc-400">No reviews available.</p>
             ) : (

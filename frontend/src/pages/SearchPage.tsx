@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { discoverAnime, searchAnime } from '../api/anime'
 import { ApiError } from '../api/client'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorPanel, LoadingIndicator } from '../components/PageStatus'
+import { EmptyState, ErrorPanel, LoadingIndicator, RateLimitRecovery } from '../components/PageStatus'
 import { ScrollingTitle } from '../components/ScrollingTitle'
 import { displayTitle, metaLine } from '../lib/display'
 import { episodeCountLabel } from '../lib/episodes'
@@ -230,14 +230,17 @@ export function SearchPage() {
         <>
           {searchQuery.isPending ? <LoadingIndicator label="Searching…" /> : null}
           {searchQuery.isError ? (
-            <ErrorPanel
-              message={
-                searchQuery.error instanceof ApiError ? searchQuery.error.message : 'Search failed'
-              }
-              onRetry={() => {
-                void searchQuery.refetch()
-              }}
-            />
+            searchQuery.error instanceof ApiError && searchQuery.error.status === 429 ? (
+              <RateLimitRecovery
+                retryAfterSeconds={searchQuery.error.retryAfterSeconds}
+                onRetry={() => void searchQuery.refetch()}
+              />
+            ) : (
+              <ErrorPanel
+                message={searchQuery.error instanceof ApiError ? searchQuery.error.message : 'Search failed'}
+                onRetry={() => void searchQuery.refetch()}
+              />
+            )
           ) : null}
           {(searchQuery.data?.pages[0]?.results.length ?? 0) === 0 ? (
             <EmptyState>No matches for “{query}”. Try another title or spelling.</EmptyState>
@@ -294,10 +297,17 @@ export function SearchPage() {
             </ul>
           ) : null}
           {recommendationsQuery.isError ? (
-            <ErrorPanel
-              message="Recommendations are temporarily unavailable."
-              onRetry={() => void recommendationsQuery.refetch()}
-            />
+            recommendationsQuery.error instanceof ApiError && recommendationsQuery.error.status === 429 ? (
+              <RateLimitRecovery
+                retryAfterSeconds={recommendationsQuery.error.retryAfterSeconds}
+                onRetry={() => void recommendationsQuery.refetch()}
+              />
+            ) : (
+              <ErrorPanel
+                message="Recommendations are temporarily unavailable."
+                onRetry={() => void recommendationsQuery.refetch()}
+              />
+            )
           ) : null}
           {recommendationsQuery.data ? (
             <ul className="search-results grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
