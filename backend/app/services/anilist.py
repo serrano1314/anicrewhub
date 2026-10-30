@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime, timezone
 from collections.abc import Callable
@@ -6,6 +7,9 @@ from typing import Protocol
 import httpx
 
 from app.core.config import get_settings
+from app.core.request_context import request_id_context
+
+logger = logging.getLogger(__name__)
 from app.schemas.anime import (
     AnimeData,
     AnimeDetails,
@@ -227,9 +231,12 @@ class TtlCache:
             return None
         expires_at, value = item
         if self._clock() >= expires_at:
-            del self._items[key]
             return None
         return value
+
+    def get_stale(self, key: tuple[str, int]) -> AnimeSearchResponse | None:
+        item = self._items.get(key)
+        return item[1] if item is not None else None
 
     def set(self, key: tuple[str, int], value: AnimeSearchResponse) -> None:
         self._items[key] = (self._clock() + self._ttl_seconds, value)
@@ -498,12 +505,14 @@ class AniListClient:
         http_client: HttpPoster | None = None,
         *,
         search_ttl_seconds: float = 300,
+        discovery_ttl_seconds: float = 1800,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._http = http_client or httpx.Client(timeout=get_settings().ANILIST_TIMEOUT_SECONDS)
         self._sleep = sleep
         self._cache = TtlCache(search_ttl_seconds, clock)
+        self._discovery_cache = TtlCache(discovery_ttl_seconds, clock)
 
     def search(self, query: str, page: int) -> AnimeSearchResponse:
         normalized = normalize_search_query(query)
@@ -512,7 +521,17 @@ class AniListClient:
         key = (normalized, page)
         cached = self._cache.get(key)
         if cached is not None:
+            logger.info(
+                "anilist_cache_hit request_id=%s cache=search key=%s",
+                request_id_context.get(),
+                key,
+            )
             return cached
+        logger.info(
+            "anilist_cache_miss request_id=%s cache=search key=%s",
+            request_id_context.get(),
+            key,
+        )
 
         payload = self._post(
             SEARCH_QUERY,
@@ -602,9 +621,19 @@ class AniListClient:
 
     def discover(self, kind: AnimeDiscoveryKind) -> AnimeSearchResponse:
         key = (f"discover:{kind.value}", 1)
-        cached = self._cache.get(key)
+        cached = self._discovery_cache.get(key)
         if cached is not None:
+            logger.info(
+                "anilist_cache_hit request_id=%s cache=discovery key=%s",
+                request_id_context.get(),
+                key,
+            )
             return cached
+        logger.info(
+            "anilist_cache_miss request_id=%s cache=discovery key=%s",
+            request_id_context.get(),
+            key,
+        )
 
         variables: dict[str, object] = {
             "page": 1,
@@ -614,7 +643,18 @@ class AniListClient:
         if kind == AnimeDiscoveryKind.latest:
             variables["status"] = "RELEASING"
 
-        payload = self._post(DISCOVERY_QUERY, variables)
+        try:
+            payload = self._post(DISCOVERY_QUERY, variables, retry_on_rate_limit=False)
+        except (AniListRateLimited, AniListUnavailable):
+            stale = self._discovery_cache.get_stale(key)
+            if stale is not None:
+                logger.warning(
+                    "anilist_stale_cache_served request_id=%s cache=discovery key=%s",
+                    request_id_context.get(),
+                    key,
+                )
+                return stale
+            raise
         data = payload.get("data")
         page_data = data.get("Page") if isinstance(data, dict) else None
         if not isinstance(page_data, dict):
@@ -638,7 +678,7 @@ class AniListClient:
                     results.append(mapped)
 
         result = AnimeSearchResponse(page=current_page, has_next_page=has_next_page, results=results)
-        self._cache.set(key, result)
+        self._discovery_cache.set(key, result)
         return result
 
     def fetch_media(self, anilist_id: int) -> AnimeData:
@@ -724,19 +764,56 @@ class AniListClient:
             reviews=reviews,
         )
 
-    def _post(self, query: str, variables: dict[str, object]) -> dict[str, object]:
+    def _post(
+        self,
+        query: str,
+        variables: dict[str, object],
+        *,
+        retry_on_rate_limit: bool = True,
+    ) -> dict[str, object]:
         body: dict[str, object] = {"query": query, "variables": variables}
         attempt = 0
         while True:
             attempt += 1
+            started_at = time.perf_counter()
+            logger.info(
+                "anilist_request_started request_id=%s method=POST attempt=%s variables=%s",
+                request_id_context.get(),
+                attempt,
+                variables,
+            )
             try:
                 response = self._http.post(ANILIST_URL, json=body, headers=_HEADERS)
             except httpx.TimeoutException as exc:
+                logger.warning(
+                    "anilist_request_failed request_id=%s method=POST attempt=%s error=timeout duration_seconds=%.3f",
+                    request_id_context.get(),
+                    attempt,
+                    time.perf_counter() - started_at,
+                )
                 raise AniListUnavailable("AniList timed out") from exc
             except httpx.HTTPError as exc:
+                logger.warning(
+                    "anilist_request_failed request_id=%s method=POST attempt=%s error=http_error duration_seconds=%.3f",
+                    request_id_context.get(),
+                    attempt,
+                    time.perf_counter() - started_at,
+                )
                 raise AniListUnavailable("AniList request failed") from exc
 
+            duration_ms = (time.perf_counter() - started_at) * 1_000
+            logger.info(
+                "anilist_response_received request_id=%s method=POST attempt=%s status=%s retry_after=%s duration_seconds=%.3f",
+                request_id_context.get(),
+                attempt,
+                response.status_code,
+                response.headers.get("Retry-After"),
+                duration_ms / 1_000,
+            )
+
             if response.status_code == 429:
+                if not retry_on_rate_limit:
+                    raise AniListRateLimited("AniList rate limit")
                 if attempt >= MAX_ATTEMPTS:
                     raise AniListRateLimited("AniList rate limit")
                 self._sleep(_retry_delay(response, attempt))
@@ -770,5 +847,6 @@ def get_anilist_client() -> AniListClient:
         _client = AniListClient(
             httpx.Client(timeout=settings.ANILIST_TIMEOUT_SECONDS),
             search_ttl_seconds=settings.ANILIST_SEARCH_CACHE_TTL_SECONDS,
+            discovery_ttl_seconds=settings.ANILIST_DISCOVERY_CACHE_TTL_SECONDS,
         )
     return _client

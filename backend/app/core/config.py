@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     ANILIST_TIMEOUT_SECONDS: float = 10
     ANILIST_SEARCH_CACHE_TTL_SECONDS: int = 300
+    ANILIST_DISCOVERY_CACHE_TTL_SECONDS: int = 1800
     ANIME_SYNC_TTL_HOURS: int = 24
 
     RATE_LIMIT_AUTH_MAX: int = 20

@@ -320,6 +320,33 @@ def test_discovery_uses_expected_sort_and_memory_cache() -> None:
     assert trending.results[0].average_score == 87
 
 
+def test_discovery_serves_stale_cache_when_rate_limited() -> None:
+    now = {"t": 0.0}
+    http = FakeHttp(
+        [
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "Page": {
+                            "pageInfo": {"currentPage": 1, "hasNextPage": False},
+                            "media": [_media()],
+                        }
+                    }
+                },
+            ),
+            httpx.Response(429),
+        ]
+    )
+    client = AniListClient(http, discovery_ttl_seconds=1, clock=lambda: now["t"])
+
+    fresh = client.discover(AnimeDiscoveryKind.trending)
+    now["t"] = 2
+
+    assert client.discover(AnimeDiscoveryKind.trending) == fresh
+    assert len(http.calls) == 2
+
+
 def test_search_cache_expires() -> None:
     now = {"t": 0.0}
     http = FakeHttp(

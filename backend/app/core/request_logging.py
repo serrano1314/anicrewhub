@@ -2,11 +2,14 @@
 
 import json
 import logging
+import threading
+from uuid import uuid4
 from time import perf_counter
 
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.request_context import request_id_context
 from app.core.security import decode_access_token_identity
 
 logger = logging.getLogger(__name__)
@@ -80,11 +83,33 @@ class RequestResponseLoggingMiddleware:
             return
 
         started_at = perf_counter()
+        request_id = uuid4().hex[:12]
+        thread_id = threading.get_ident()
+        request_id_token = request_id_context.set(request_id)
         request_body = bytearray()
         response_body = bytearray()
         request_truncated = False
         response_truncated = False
         status_code = 500
+        request_logged = False
+        user_id, username = _user_identity(Headers(scope=scope))
+
+        def log_request_received() -> None:
+            nonlocal request_logged
+            if request_logged:
+                return
+            request_logged = True
+            logger.info(
+                "request_received request_id=%s thread_id=%s method=%s path=%s query=%s user_id=%s username=%s request=%s",
+                request_id,
+                thread_id,
+                scope["method"],
+                scope["path"],
+                scope.get("query_string", b"").decode("latin-1"),
+                user_id,
+                username,
+                _body_preview(bytes(request_body), request_truncated),
+            )
 
         async def receive_with_logging() -> Message:
             nonlocal request_truncated
@@ -93,12 +118,18 @@ class RequestResponseLoggingMiddleware:
                 request_truncated = _append_limited(
                     request_body, message.get("body", b"")
                 ) or request_truncated
+                if not message.get("more_body", False):
+                    log_request_received()
             return message
 
         async def send_with_logging(message: Message) -> None:
             nonlocal response_truncated, status_code
             if message["type"] == "http.response.start":
                 status_code = message["status"]
+                headers = list(message.get("headers", []))
+                if not any(name.lower() == b"x-request-id" for name, _ in headers):
+                    headers.append((b"x-request-id", request_id.encode("ascii")))
+                message = {**message, "headers": headers}
             elif message["type"] == "http.response.body":
                 response_truncated = _append_limited(
                     response_body, message.get("body", b"")
@@ -108,15 +139,18 @@ class RequestResponseLoggingMiddleware:
         try:
             await self.app(scope, receive_with_logging, send_with_logging)
         finally:
-            user_id, username = _user_identity(Headers(scope=scope))
+            log_request_received()
             logger.info(
-                "%s %s status=%s duration_ms=%.2f user_id=%s username=%s request=%s response=%s",
+                "request_completed request_id=%s thread_id=%s method=%s path=%s status=%s duration_seconds=%.3f user_id=%s username=%s request=%s response=%s",
+                request_id,
+                thread_id,
                 scope["method"],
                 scope["path"],
                 status_code,
-                (perf_counter() - started_at) * 1_000,
+                perf_counter() - started_at,
                 user_id,
                 username,
                 _body_preview(bytes(request_body), request_truncated),
                 _body_preview(bytes(response_body), response_truncated),
             )
+            request_id_context.reset(request_id_token)
